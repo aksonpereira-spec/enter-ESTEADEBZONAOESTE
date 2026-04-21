@@ -6,26 +6,34 @@
   <link href="/favicon.ico" rel="icon shortcut">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
   
-  <!-- Compatibilidade com navegadores -->
-  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!-- Cross-browser compatibility -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta name="format-detection" content="telephone=no" />
+  <meta name="renderer" content="webkit" />
   
-  <!-- PWA Support -->
+  <!-- PWA / Mobile Support -->
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Esteadeb Financeiro" />
   
-  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- Preconnect for fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  
-  <title>Sistema Financeiro Esteadeb - Controle de Alunos</title>
-  <meta name="description" content="Sistema completo de controle financeiro e gestão de alunos Esteadeb" />
-  <meta name="author" content="Esteadeb" />
-  <meta name="keywords" content="sistema financeiro, controle de alunos, esteadeb, gestão educacional" />
 
-  <meta property="og:title" content="Sistema Financeiro Esteadeb" />
-  <meta property="og:description" content="Sistema completo de controle financeiro e gestão de alunos" />
-  <meta property="og:type" content="website" />
+  <title>Sistema Financeiro Esteadeb</title>
+  <meta name="description" content="Sistema completo de controle financeiro e gestão de alunos Esteadeb" />
+
+  <!-- Safari / older browsers: ensure box-sizing and base styles render correctly -->
+  <style>
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    #root { min-height: 100vh; min-height: 100dvh; }
+    /* Fallback background while JS loads — prevents white flash */
+    body { background-color: #f0f4fa; }
+  </style>
 </head>
 
 <body>

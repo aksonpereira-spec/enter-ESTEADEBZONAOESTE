@@ -1,0 +1,25 @@
+
+-- Trigger para auto-numeração sequencial por mês (sem apagar dados)
+-- Função que renumera todos os registros do mesmo mês mantendo a ordem de criação
+CREATE OR REPLACE FUNCTION renumber_students_by_month()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Renumera apenas os registros do mês afetado, em ordem de created_at
+  UPDATE public.students s
+  SET numero = sub.row_num
+  FROM (
+    SELECT id, ROW_NUMBER() OVER (PARTITION BY mes ORDER BY created_at ASC) AS row_num
+    FROM public.students
+    WHERE mes = NEW.mes
+  ) sub
+  WHERE s.id = sub.id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Remove trigger antigo se existir e cria novo
+DROP TRIGGER IF EXISTS trg_renumber_students ON public.students;
+CREATE TRIGGER trg_renumber_students
+  AFTER INSERT ON public.students
+  FOR EACH ROW
+  EXECUTE FUNCTION renumber_students_by_month();

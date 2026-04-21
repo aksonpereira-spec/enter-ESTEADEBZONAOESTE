@@ -9,12 +9,25 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Safe localStorage helpers — Safari private mode throws on access
+const safeStorage = {
+  get: (key: string): string | null => {
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  set: (key: string, value: string): void => {
+    try { localStorage.setItem(key, value); } catch { /* silent */ }
+  },
+  remove: (key: string): void => {
+    try { localStorage.removeItem(key); } catch { /* silent */ }
+  },
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const auth = localStorage.getItem('esteadeb_auth');
+    const auth = safeStorage.get('esteadeb_auth');
     if (auth === 'true') {
       setIsAuthenticated(true);
     }
@@ -24,7 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = (username: string, password: string): boolean => {
     if (username === 'admin' && password === '1234') {
       setIsAuthenticated(true);
-      localStorage.setItem('esteadeb_auth', 'true');
+      safeStorage.set('esteadeb_auth', 'true');
       return true;
     }
     return false;
@@ -32,7 +45,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     setIsAuthenticated(false);
-    localStorage.removeItem('esteadeb_auth');
+    safeStorage.remove('esteadeb_auth');
   };
 
   return (

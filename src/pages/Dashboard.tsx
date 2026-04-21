@@ -47,23 +47,34 @@ const Dashboard = () => {
   // ─── Load from Supabase ────────────────────────────────────────────────────
   const loadStudents = useCallback(async () => {
     setLoadingStudents(true);
-    const { data, error } = await supabase.from('students').select('*').order('numero', { ascending: true });
+    const { data, error } = await supabase
+      .from('students')
+      .select('*')
+      .order('mes', { ascending: true })
+      .order('created_at', { ascending: true });
     if (!error && data) {
-      setStudents(data.map(r => ({
-        id: r.id,
-        numero: r.numero ?? 0,
-        matricula: r.matricula ?? '',
-        nome: r.nome ?? '',
-        dinheiro: Number(r.dinheiro) || 0,
-        pixTransferencia: Number(r.pix_transferencia) || 0,
-        cartaoAssinatura: Number(r.cartao_assinatura) || 0,
-        cartaoDebito: Number(r.cartao_debito) || 0,
-        situacao: (r.situacao as 'Pago' | 'Pendente' | '-') ?? '-',
-        apostilas: (r.apostilas as 'Sim' | 'Não') ?? 'Não',
-        qtdApostilas: r.qtd_apostilas ?? 0,
-        obs: r.obs ?? '',
-        mes: r.mes ?? '',
-      })));
+      // Renumber sequentially per month to avoid duplicates
+      const monthCounters: Record<string, number> = {};
+      setStudents(data.map(r => {
+        const month = r.mes ?? '';
+        if (!monthCounters[month]) monthCounters[month] = 0;
+        monthCounters[month]++;
+        return {
+          id: r.id,
+          numero: monthCounters[month],
+          matricula: r.matricula ?? '',
+          nome: r.nome ?? '',
+          dinheiro: Number(r.dinheiro) || 0,
+          pixTransferencia: Number(r.pix_transferencia) || 0,
+          cartaoAssinatura: Number(r.cartao_assinatura) || 0,
+          cartaoDebito: Number(r.cartao_debito) || 0,
+          situacao: (r.situacao as 'Pago' | 'Pendente' | '-') ?? '-',
+          apostilas: (r.apostilas as 'Sim' | 'Não') ?? 'Não',
+          qtdApostilas: r.qtd_apostilas ?? 0,
+          obs: r.obs ?? '',
+          mes: month,
+        };
+      }));
     }
     setLoadingStudents(false);
   }, []);
@@ -135,9 +146,8 @@ const Dashboard = () => {
 
   // ─── Students CRUD ─────────────────────────────────────────────────────────
   const addStudent = async () => {
-    const maxNumero = students.filter(s => s.mes === selectedMonth).reduce((m, s) => Math.max(m, s.numero ?? 0), 0);
-    const { data, error } = await supabase.from('students').insert({
-      numero: maxNumero + 1,
+    const { error } = await supabase.from('students').insert({
+      numero: 0, // trigger will renumber correctly
       matricula: '',
       nome: '',
       dinheiro: 0,
@@ -149,23 +159,9 @@ const Dashboard = () => {
       qtd_apostilas: 0,
       obs: '',
       mes: selectedMonth,
-    }).select().single();
-    if (!error && data) {
-      setStudents(prev => [...prev, {
-        id: data.id,
-        numero: data.numero ?? maxNumero + 1,
-        matricula: '',
-        nome: '',
-        dinheiro: 0,
-        pixTransferencia: 0,
-        cartaoAssinatura: 0,
-        cartaoDebito: 0,
-        situacao: '-',
-        apostilas: 'Não',
-        qtdApostilas: 0,
-        obs: '',
-        mes: selectedMonth,
-      }]);
+    });
+    if (!error) {
+      await loadStudents(); // reload to get correct trigger-assigned numbers
       toast.success('Aluno adicionado');
     } else {
       toast.error('Erro ao adicionar aluno');
@@ -207,7 +203,7 @@ const Dashboard = () => {
   const deleteStudent = async (id: string) => {
     const { error } = await supabase.from('students').delete().eq('id', id);
     if (!error) {
-      setStudents(prev => prev.filter(s => s.id !== id));
+      await loadStudents(); // reload to renumber correctly after deletion
       toast.success('Aluno excluído');
     } else {
       toast.error('Erro ao excluir aluno');

@@ -24,12 +24,18 @@ export default defineConfig(({ mode }) => {
     base: '/',
     build: {
       outDir: 'dist',
-      target: 'es2015',
-      cssTarget: 'chrome90',
+      // Target modern browsers: Chrome 87+, Firefox 78+, Safari 14+, Edge 88+
+      target: ['chrome87', 'firefox78', 'safari14', 'edge88'],
+      cssTarget: ['chrome87', 'firefox78', 'safari14', 'edge88'],
       minify: 'esbuild',
       rollupOptions: {
         output: {
-          manualChunks: undefined,
+          manualChunks: {
+            vendor: ['react', 'react-dom', 'react-router-dom'],
+            charts: ['recharts'],
+            pdf: ['jspdf', 'html2canvas'],
+            supabase: ['@supabase/supabase-js'],
+          },
         },
       },
     },

@@ -201,6 +201,9 @@
   ::-webkit-scrollbar-track { @apply bg-muted/30 rounded-full; }
   ::-webkit-scrollbar-thumb { @apply bg-muted-foreground/30 rounded-full; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/50; }
+
+  /* Safari: explicit webkit prefixes for backdrop-filter and sticky */
+  .sticky { position: -webkit-sticky; position: sticky; }
 }
 
 @layer utilities {
