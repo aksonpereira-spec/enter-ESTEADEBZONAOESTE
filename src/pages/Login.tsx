@@ -30,12 +30,15 @@ const Login = () => {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
-              <Lock className="w-8 h-8 text-primary-foreground" />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="Esteadeb Logo" 
+              className="w-24 h-24 object-contain"
+              crossOrigin="anonymous"
+            />
           </div>
           <CardTitle className="text-2xl font-bold">Sistema Financeiro</CardTitle>
-          <CardDescription>Controle de Alunos</CardDescription>
+          <CardDescription>Controle de Alunos - Esteadeb</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

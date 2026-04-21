@@ -243,10 +243,23 @@ const Dashboard = () => {
       const pageWidth = pdf.internal.pageSize.getWidth();
       const monthLabel = getMonthOptions().find(m => m.value === selectedMonth)?.label || selectedMonth;
       
+      // Add Logo
+      try {
+        const logoImg = await fetch('/logo.png').then(res => res.blob());
+        const logoUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(logoImg);
+        });
+        pdf.addImage(logoUrl, 'PNG', 10, 8, 25, 25);
+      } catch (err) {
+        console.log('Logo not loaded:', err);
+      }
+      
       // Header
       pdf.setFontSize(18);
       pdf.setTextColor(59, 130, 246);
-      pdf.text('Relatório Financeiro - Controle de Alunos', pageWidth / 2, 15, { align: 'center' });
+      pdf.text('Relatório Financeiro - Esteadeb', pageWidth / 2, 15, { align: 'center' });
       
       pdf.setFontSize(11);
       pdf.setTextColor(100);
@@ -254,20 +267,41 @@ const Dashboard = () => {
       pdf.setFontSize(9);
       pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, 27, { align: 'center' });
 
+      // Coordinator and Core Info
+      let yPos = 35;
+      pdf.setFontSize(10);
+      pdf.setTextColor(0);
+      
+      if (coordinators.length > 0) {
+        const coord = coordinators[0];
+        pdf.setFontSize(9);
+        pdf.setTextColor(59, 130, 246);
+        pdf.text('Informações do Núcleo:', 10, yPos);
+        pdf.setTextColor(0);
+        yPos += 5;
+        pdf.text(`Coordenador: ${coord.nome || 'Não informado'}`, 15, yPos);
+        yPos += 4;
+        pdf.text(`Núcleo: ${coord.nucleo || 'Não informado'}`, 15, yPos);
+        yPos += 4;
+        pdf.text(`Contato: ${coord.email || ''} ${coord.telefone ? '- ' + coord.telefone : ''}`, 15, yPos);
+        yPos += 7;
+      }
+
       // Capture chart
       if (chartRef.current) {
         const canvas = await html2canvas(chartRef.current, { scale: 2 });
         const imgData = canvas.toDataURL('image/png');
-        pdf.addImage(imgData, 'PNG', 10, 32, pageWidth - 20, 55);
+        pdf.addImage(imgData, 'PNG', 10, yPos, pageWidth - 20, 50);
+        yPos += 55;
       }
 
       // Financial Summary
       pdf.setFontSize(12);
       pdf.setTextColor(0);
-      pdf.text('Resumo Financeiro', 10, 95);
+      pdf.text('Resumo Financeiro', 10, yPos);
+      yPos += 7;
       
       pdf.setFontSize(9);
-      let yPos = 102;
       
       pdf.text(`Dinheiro: R$ ${summary.totalDinheiro.toFixed(2)}`, 15, yPos);
       yPos += 5;
@@ -298,9 +332,38 @@ const Dashboard = () => {
       yPos += 6;
       pdf.text(`Apostilas: ${summary.qtdApostilas}`, 15, yPos);
 
+      // Disciplines Section
+      if (disciplines.length > 0) {
+        yPos += 10;
+        if (yPos > 250) {
+          pdf.addPage();
+          yPos = 20;
+        }
+        pdf.setFontSize(12);
+        pdf.setTextColor(0);
+        pdf.text('Disciplinas e Professores', 10, yPos);
+        yPos += 7;
+        
+        pdf.setFontSize(8);
+        disciplines.slice(0, 10).forEach((disc) => {
+          if (yPos > 280) {
+            pdf.addPage();
+            yPos = 20;
+          }
+          pdf.text(`${disc.nome} - Prof. ${disc.professor} (${disc.diasSemana} ${disc.horario})`, 15, yPos);
+          yPos += 5;
+        });
+        yPos += 5;
+      }
+
       // Table
-      yPos += 10;
+      if (yPos > 230) {
+        pdf.addPage();
+        yPos = 20;
+      }
+      
       pdf.setFontSize(12);
+      pdf.setTextColor(0);
       pdf.text('Lista de Alunos', 10, yPos);
       
       yPos += 7;
@@ -355,11 +418,14 @@ const Dashboard = () => {
       <header className="bg-card border-b shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-primary-foreground" />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="Esteadeb Logo" 
+              className="w-12 h-12 object-contain"
+              crossOrigin="anonymous"
+            />
             <div>
-              <h1 className="text-xl font-bold text-foreground">Sistema Financeiro</h1>
+              <h1 className="text-xl font-bold text-foreground">Sistema Financeiro Esteadeb</h1>
               <p className="text-sm text-muted-foreground">Controle Completo de Gestão</p>
             </div>
           </div>

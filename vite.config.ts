@@ -24,6 +24,14 @@ export default defineConfig(({ mode }) => {
     base: '/',
     build: {
       outDir: 'dist',
-    }
+      target: 'es2015',
+      cssTarget: 'chrome90',
+      minify: 'terser',
+      rollupOptions: {
+        output: {
+          manualChunks: undefined,
+        },
+      },
+    },
   };
 });
