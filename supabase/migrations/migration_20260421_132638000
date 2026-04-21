@@ -1,0 +1,70 @@
+
+-- Turmas
+CREATE TABLE IF NOT EXISTS public.classes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome TEXT NOT NULL DEFAULT '',
+  turno TEXT NOT NULL DEFAULT 'Noite',
+  disciplina TEXT DEFAULT '',
+  professor TEXT DEFAULT '',
+  dias_semana TEXT DEFAULT '',
+  nucleo TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_classes" ON public.classes FOR ALL USING (true) WITH CHECK (true);
+
+-- Alunos cadastrados (tabela independente do sistema financeiro antigo)
+CREATE TABLE IF NOT EXISTS public.alunos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome TEXT NOT NULL DEFAULT '',
+  matricula TEXT DEFAULT '',
+  telefone TEXT DEFAULT '',
+  email TEXT DEFAULT '',
+  turma_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
+  ativo BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.alunos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_alunos" ON public.alunos FOR ALL USING (true) WITH CHECK (true);
+
+-- Mensalidades por aluno/mês
+CREATE TABLE IF NOT EXISTS public.mensalidades (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  aluno_id UUID NOT NULL REFERENCES public.alunos(id) ON DELETE CASCADE,
+  turma_id UUID REFERENCES public.classes(id) ON DELETE SET NULL,
+  mes TEXT NOT NULL DEFAULT '',
+  situacao TEXT DEFAULT 'Pendente',
+  forma_pagamento TEXT DEFAULT '',
+  valor NUMERIC(10,2) DEFAULT 0,
+  obs TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(aluno_id, mes)
+);
+ALTER TABLE public.mensalidades ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_mensalidades" ON public.mensalidades FOR ALL USING (true) WITH CHECK (true);
+
+-- Sessões de chamada
+CREATE TABLE IF NOT EXISTS public.attendance_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  turma_id UUID NOT NULL REFERENCES public.classes(id) ON DELETE CASCADE,
+  data DATE NOT NULL,
+  turno TEXT DEFAULT 'Noite',
+  professor TEXT DEFAULT '',
+  disciplina TEXT DEFAULT '',
+  obs TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.attendance_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_sessions" ON public.attendance_sessions FOR ALL USING (true) WITH CHECK (true);
+
+-- Registros de presença por sessão
+CREATE TABLE IF NOT EXISTS public.attendance_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES public.attendance_sessions(id) ON DELETE CASCADE,
+  aluno_id UUID NOT NULL REFERENCES public.alunos(id) ON DELETE CASCADE,
+  presente BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(session_id, aluno_id)
+);
+ALTER TABLE public.attendance_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_records" ON public.attendance_records FOR ALL USING (true) WITH CHECK (true);

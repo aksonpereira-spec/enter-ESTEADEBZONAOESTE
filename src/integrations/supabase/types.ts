@@ -3109,6 +3109,156 @@ export type Database = {
   }
   public: {
     Tables: {
+      alunos: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          email: string | null
+          id: string
+          matricula: string | null
+          nome: string
+          telefone: string | null
+          turma_id: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          matricula?: string | null
+          nome?: string
+          telefone?: string | null
+          turma_id?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          matricula?: string | null
+          nome?: string
+          telefone?: string | null
+          turma_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alunos_turma_id_fkey"
+            columns: ["turma_id"]
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_records: {
+        Row: {
+          aluno_id: string
+          created_at: string | null
+          id: string
+          presente: boolean | null
+          session_id: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string | null
+          id?: string
+          presente?: boolean | null
+          session_id: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string | null
+          id?: string
+          presente?: boolean | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_aluno_id_fkey"
+            columns: ["aluno_id"]
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_session_id_fkey"
+            columns: ["session_id"]
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_sessions: {
+        Row: {
+          created_at: string | null
+          data: string
+          disciplina: string | null
+          id: string
+          obs: string | null
+          professor: string | null
+          turma_id: string
+          turno: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          disciplina?: string | null
+          id?: string
+          obs?: string | null
+          professor?: string | null
+          turma_id: string
+          turno?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          disciplina?: string | null
+          id?: string
+          obs?: string | null
+          professor?: string | null
+          turma_id?: string
+          turno?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_sessions_turma_id_fkey"
+            columns: ["turma_id"]
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      classes: {
+        Row: {
+          created_at: string | null
+          dias_semana: string | null
+          disciplina: string | null
+          id: string
+          nome: string
+          nucleo: string | null
+          professor: string | null
+          turno: string
+        }
+        Insert: {
+          created_at?: string | null
+          dias_semana?: string | null
+          disciplina?: string | null
+          id?: string
+          nome?: string
+          nucleo?: string | null
+          professor?: string | null
+          turno?: string
+        }
+        Update: {
+          created_at?: string | null
+          dias_semana?: string | null
+          disciplina?: string | null
+          id?: string
+          nome?: string
+          nucleo?: string | null
+          professor?: string | null
+          turno?: string
+        }
+        Relationships: []
+      }
       coordinators: {
         Row: {
           created_at: string | null
@@ -3168,6 +3318,55 @@ export type Database = {
           professor?: string | null
         }
         Relationships: []
+      }
+      mensalidades: {
+        Row: {
+          aluno_id: string
+          created_at: string | null
+          forma_pagamento: string | null
+          id: string
+          mes: string
+          obs: string | null
+          situacao: string | null
+          turma_id: string | null
+          valor: number | null
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          mes?: string
+          obs?: string | null
+          situacao?: string | null
+          turma_id?: string | null
+          valor?: number | null
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          mes?: string
+          obs?: string | null
+          situacao?: string | null
+          turma_id?: string | null
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mensalidades_aluno_id_fkey"
+            columns: ["aluno_id"]
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mensalidades_turma_id_fkey"
+            columns: ["turma_id"]
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {
