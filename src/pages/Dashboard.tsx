@@ -1,17 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Student, Coordinator, Discipline, FinancialSummary, TAXA_CARTAO_ASSINATURA, TAXA_CARTAO_DEBITO, TAXA_COMISSAO } from '@/types/student';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -19,51 +11,101 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LogOut, Plus, Search, Download, Trash2, TrendingUp, DollarSign, Percent, Users, UserCog, BookOpen, Calendar } from 'lucide-react';
+import { LogOut, Plus, Search, Download, Trash2, TrendingUp, DollarSign, Percent, Users, UserCog, BookOpen, Calendar, RefreshCw, ChevronRight, Activity, BarChart2, Database, Loader2, CheckCircle, Clock, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+type TabType = 'alunos' | 'coordenadores' | 'disciplinas';
+
 const Dashboard = () => {
   const { logout } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabType>('alunos');
   const [students, setStudents] = useState<Student[]>([]);
   const [coordinators, setCoordinators] = useState<Coordinator[]>([]);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSituacao, setFilterSituacao] = useState<string>('all');
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [loadingCoords, setLoadingCoords] = useState(true);
+  const [loadingDiscs, setLoadingDiscs] = useState(true);
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+  const studentsRef = useRef<Student[]>([]);
+  useEffect(() => { studentsRef.current = students; }, [students]);
+  const coordinatorsRef = useRef<Coordinator[]>([]);
+  useEffect(() => { coordinatorsRef.current = coordinators; }, [coordinators]);
+  const disciplinesRef = useRef<Discipline[]>([]);
+  useEffect(() => { disciplinesRef.current = disciplines; }, [disciplines]);
   const chartRef = useRef<HTMLDivElement>(null);
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Load data
-  useEffect(() => {
-    const savedStudents = localStorage.getItem('students');
-    const savedCoordinators = localStorage.getItem('coordinators');
-    const savedDisciplines = localStorage.getItem('disciplines');
-    
-    if (savedStudents) setStudents(JSON.parse(savedStudents));
-    if (savedCoordinators) setCoordinators(JSON.parse(savedCoordinators));
-    if (savedDisciplines) setDisciplines(JSON.parse(savedDisciplines));
+  // ─── Load from Supabase ────────────────────────────────────────────────────
+  const loadStudents = useCallback(async () => {
+    setLoadingStudents(true);
+    const { data, error } = await supabase.from('students').select('*').order('numero', { ascending: true });
+    if (!error && data) {
+      setStudents(data.map(r => ({
+        id: r.id,
+        numero: r.numero ?? 0,
+        matricula: r.matricula ?? '',
+        nome: r.nome ?? '',
+        dinheiro: Number(r.dinheiro) || 0,
+        pixTransferencia: Number(r.pix_transferencia) || 0,
+        cartaoAssinatura: Number(r.cartao_assinatura) || 0,
+        cartaoDebito: Number(r.cartao_debito) || 0,
+        situacao: (r.situacao as 'Pago' | 'Pendente' | '-') ?? '-',
+        apostilas: (r.apostilas as 'Sim' | 'Não') ?? 'Não',
+        obs: r.obs ?? '',
+        mes: r.mes ?? '',
+      })));
+    }
+    setLoadingStudents(false);
   }, []);
 
-  // Save data
-  useEffect(() => {
-    localStorage.setItem('students', JSON.stringify(students));
-  }, [students]);
+  const loadCoordinators = useCallback(async () => {
+    setLoadingCoords(true);
+    const { data, error } = await supabase.from('coordinators').select('*').order('created_at', { ascending: true });
+    if (!error && data) {
+      setCoordinators(data.map(r => ({
+        id: r.id,
+        nome: r.nome ?? '',
+        email: r.email ?? '',
+        telefone: r.telefone ?? '',
+        nucleo: r.nucleo ?? '',
+        dataInicio: r.data_inicio ?? '',
+      })));
+    }
+    setLoadingCoords(false);
+  }, []);
+
+  const loadDisciplines = useCallback(async () => {
+    setLoadingDiscs(true);
+    const { data, error } = await supabase.from('disciplines').select('*').order('created_at', { ascending: true });
+    if (!error && data) {
+      setDisciplines(data.map(r => ({
+        id: r.id,
+        nome: r.nome ?? '',
+        professor: r.professor ?? '',
+        cargaHoraria: r.carga_horaria ?? 0,
+        diasSemana: r.dias_semana ?? '',
+        horario: r.horario ?? '',
+      })));
+    }
+    setLoadingDiscs(false);
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('coordinators', JSON.stringify(coordinators));
-  }, [coordinators]);
+    loadStudents();
+    loadCoordinators();
+    loadDisciplines();
+  }, [loadStudents, loadCoordinators, loadDisciplines]);
 
-  useEffect(() => {
-    localStorage.setItem('disciplines', JSON.stringify(disciplines));
-  }, [disciplines]);
-
-  // Generate month options (last 12 months + next 6 months)
+  // ─── Helpers ───────────────────────────────────────────────────────────────
   const getMonthOptions = () => {
     const options = [];
     const now = new Date();
@@ -76,921 +118,739 @@ const Dashboard = () => {
     return options;
   };
 
-  const calculateSituacao = (student: Partial<Student>): 'Pago' | 'Pendente' | '-' => {
-    if (!student.nome) return '-';
-    const totalPagamento =
-      (student.dinheiro || 0) +
-      (student.pixTransferencia || 0) +
-      (student.cartaoAssinatura || 0) +
-      (student.cartaoDebito || 0);
-    return totalPagamento > 0 ? 'Pago' : 'Pendente';
+  const calculateSituacao = (s: Partial<Student>): 'Pago' | 'Pendente' | '-' => {
+    if (!s.nome) return '-';
+    const total = (s.dinheiro || 0) + (s.pixTransferencia || 0) + (s.cartaoAssinatura || 0) + (s.cartaoDebito || 0);
+    return total > 0 ? 'Pago' : 'Pendente';
   };
 
-  // STUDENTS
-  const addStudent = () => {
-    const newStudent: Student = {
-      id: students.length > 0 ? Math.max(...students.map((s) => s.id)) + 1 : 1,
+  const setSaving = (id: string, on: boolean) => {
+    setSavingIds(prev => {
+      const next = new Set(prev);
+      if (on) { next.add(id); } else { next.delete(id); }
+      return next;
+    });
+  };
+
+  // ─── Students CRUD ─────────────────────────────────────────────────────────
+  const addStudent = async () => {
+    const maxNumero = students.filter(s => s.mes === selectedMonth).reduce((m, s) => Math.max(m, s.numero ?? 0), 0);
+    const { data, error } = await supabase.from('students').insert({
+      numero: maxNumero + 1,
       matricula: '',
       nome: '',
       dinheiro: 0,
-      pixTransferencia: 0,
-      cartaoAssinatura: 0,
-      cartaoDebito: 0,
+      pix_transferencia: 0,
+      cartao_assinatura: 0,
+      cartao_debito: 0,
       situacao: '-',
       apostilas: 'Não',
       obs: '',
       mes: selectedMonth,
-    };
-    setStudents([...students, newStudent]);
-    toast.success('Novo aluno adicionado');
+    }).select().single();
+    if (!error && data) {
+      setStudents(prev => [...prev, {
+        id: data.id,
+        numero: data.numero ?? maxNumero + 1,
+        matricula: '',
+        nome: '',
+        dinheiro: 0,
+        pixTransferencia: 0,
+        cartaoAssinatura: 0,
+        cartaoDebito: 0,
+        situacao: '-',
+        apostilas: 'Não',
+        obs: '',
+        mes: selectedMonth,
+      }]);
+      toast.success('Aluno adicionado');
+    } else {
+      toast.error('Erro ao adicionar aluno');
+    }
   };
 
-  const updateStudent = (id: number, field: keyof Student, value: string | number) => {
-    setStudents((prev) =>
-      prev.map((student) => {
-        if (student.id === id) {
-          const updated = { ...student, [field]: value };
-          updated.situacao = calculateSituacao(updated);
-          return updated;
-        }
-        return student;
-      })
-    );
+  const updateStudent = (id: string, field: keyof Student, value: string | number) => {
+    setStudents(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const updated = { ...s, [field]: value };
+      updated.situacao = calculateSituacao(updated);
+      return updated;
+    }));
+
+    // Debounced save
+    if (saveTimers.current[id]) clearTimeout(saveTimers.current[id]);
+    saveTimers.current[id] = setTimeout(async () => {
+      setSaving(id, true);
+      const student = studentsRef.current.find(s => s.id === id);
+      if (!student) { setSaving(id, false); return; }
+      const updated = { ...student, [field]: value };
+      updated.situacao = calculateSituacao(updated);
+      await supabase.from('students').update({
+        matricula: updated.matricula,
+        nome: updated.nome,
+        dinheiro: updated.dinheiro,
+        pix_transferencia: updated.pixTransferencia,
+        cartao_assinatura: updated.cartaoAssinatura,
+        cartao_debito: updated.cartaoDebito,
+        situacao: updated.situacao,
+        apostilas: updated.apostilas,
+        obs: updated.obs,
+      }).eq('id', id);
+      setSaving(id, false);
+    }, 800);
   };
 
-  const deleteStudent = (id: number) => {
-    setStudents((prev) => prev.filter((student) => student.id !== id));
-    toast.success('Aluno excluído');
+  const deleteStudent = async (id: string) => {
+    const { error } = await supabase.from('students').delete().eq('id', id);
+    if (!error) {
+      setStudents(prev => prev.filter(s => s.id !== id));
+      toast.success('Aluno excluído');
+    } else {
+      toast.error('Erro ao excluir aluno');
+    }
   };
 
-  // COORDINATORS
-  const addCoordinator = () => {
-    const newCoordinator: Coordinator = {
-      id: coordinators.length > 0 ? Math.max(...coordinators.map((c) => c.id)) + 1 : 1,
-      nome: '',
-      email: '',
-      telefone: '',
-      nucleo: '',
-      dataInicio: new Date().toISOString().split('T')[0],
-    };
-    setCoordinators([...coordinators, newCoordinator]);
-    toast.success('Novo coordenador adicionado');
+  // ─── Coordinators CRUD ─────────────────────────────────────────────────────
+  const addCoordinator = async () => {
+    const { data, error } = await supabase.from('coordinators').insert({
+      nome: '', email: '', telefone: '', nucleo: '',
+      data_inicio: new Date().toISOString().split('T')[0],
+    }).select().single();
+    if (!error && data) {
+      setCoordinators(prev => [...prev, { id: data.id, nome: '', email: '', telefone: '', nucleo: '', dataInicio: data.data_inicio ?? '' }]);
+      toast.success('Coordenador adicionado');
+    }
   };
 
-  const updateCoordinator = (id: number, field: keyof Coordinator, value: string) => {
-    setCoordinators((prev) =>
-      prev.map((coordinator) =>
-        coordinator.id === id ? { ...coordinator, [field]: value } : coordinator
-      )
-    );
+  const updateCoordinator = (id: string, field: keyof Coordinator, value: string) => {
+    setCoordinators(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+    if (saveTimers.current[`c_${id}`]) clearTimeout(saveTimers.current[`c_${id}`]);
+    saveTimers.current[`c_${id}`] = setTimeout(async () => {
+      setSaving(id, true);
+      const coord = coordinatorsRef.current.find(c => c.id === id);
+      if (!coord) { setSaving(id, false); return; }
+      const updated = { ...coord, [field]: value };
+      await supabase.from('coordinators').update({
+        nome: updated.nome, email: updated.email,
+        telefone: updated.telefone, nucleo: updated.nucleo,
+        data_inicio: updated.dataInicio,
+      }).eq('id', id);
+      setSaving(id, false);
+    }, 800);
   };
 
-  const deleteCoordinator = (id: number) => {
-    setCoordinators((prev) => prev.filter((coordinator) => coordinator.id !== id));
-    toast.success('Coordenador excluído');
+  const deleteCoordinator = async (id: string) => {
+    const { error } = await supabase.from('coordinators').delete().eq('id', id);
+    if (!error) {
+      setCoordinators(prev => prev.filter(c => c.id !== id));
+      toast.success('Coordenador excluído');
+    }
   };
 
-  // DISCIPLINES
-  const addDiscipline = () => {
-    const newDiscipline: Discipline = {
-      id: disciplines.length > 0 ? Math.max(...disciplines.map((d) => d.id)) + 1 : 1,
-      nome: '',
-      professor: '',
-      cargaHoraria: 0,
-      diasSemana: '',
-      horario: '',
-    };
-    setDisciplines([...disciplines, newDiscipline]);
-    toast.success('Nova disciplina adicionada');
+  // ─── Disciplines CRUD ──────────────────────────────────────────────────────
+  const addDiscipline = async () => {
+    const { data, error } = await supabase.from('disciplines').insert({
+      nome: '', professor: '', carga_horaria: 0, dias_semana: '', horario: '',
+    }).select().single();
+    if (!error && data) {
+      setDisciplines(prev => [...prev, { id: data.id, nome: '', professor: '', cargaHoraria: 0, diasSemana: '', horario: '' }]);
+      toast.success('Disciplina adicionada');
+    }
   };
 
-  const updateDiscipline = (id: number, field: keyof Discipline, value: string | number) => {
-    setDisciplines((prev) =>
-      prev.map((discipline) =>
-        discipline.id === id ? { ...discipline, [field]: value } : discipline
-      )
-    );
+  const updateDiscipline = (id: string, field: keyof Discipline, value: string | number) => {
+    setDisciplines(prev => prev.map(d => d.id === id ? { ...d, [field]: value } : d));
+    if (saveTimers.current[`d_${id}`]) clearTimeout(saveTimers.current[`d_${id}`]);
+    saveTimers.current[`d_${id}`] = setTimeout(async () => {
+      setSaving(id, true);
+      const disc = disciplinesRef.current.find(d => d.id === id);
+      if (!disc) { setSaving(id, false); return; }
+      const updated = { ...disc, [field]: value };
+      await supabase.from('disciplines').update({
+        nome: updated.nome, professor: updated.professor,
+        carga_horaria: updated.cargaHoraria, dias_semana: updated.diasSemana, horario: updated.horario,
+      }).eq('id', id);
+      setSaving(id, false);
+    }, 800);
   };
 
-  const deleteDiscipline = (id: number) => {
-    setDisciplines((prev) => prev.filter((discipline) => discipline.id !== id));
-    toast.success('Disciplina excluída');
+  const deleteDiscipline = async (id: string) => {
+    const { error } = await supabase.from('disciplines').delete().eq('id', id);
+    if (!error) {
+      setDisciplines(prev => prev.filter(d => d.id !== id));
+      toast.success('Disciplina excluída');
+    }
   };
 
-  // Filter students by month
-  const filteredStudents = students.filter((student) => {
-    const matchesMonth = student.mes === selectedMonth;
-    const matchesSearch = student.nome.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesSituacao = filterSituacao === 'all' || student.situacao === filterSituacao;
+  // ─── Computed ──────────────────────────────────────────────────────────────
+  const filteredStudents = students.filter(s => {
+    const matchesMonth = s.mes === selectedMonth;
+    const matchesSearch = s.nome.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSituacao = filterSituacao === 'all' || s.situacao === filterSituacao;
     return matchesMonth && matchesSearch && matchesSituacao;
   });
 
   const getFinancialSummary = (): FinancialSummary => {
-    const monthStudents = students.filter(s => s.mes === selectedMonth);
-    const totals = monthStudents.reduce(
-      (acc, student) => {
-        acc.dinheiro += student.dinheiro;
-        acc.pixTransferencia += student.pixTransferencia;
-        acc.cartaoAssinatura += student.cartaoAssinatura;
-        acc.cartaoDebito += student.cartaoDebito;
-        if (student.apostilas === 'Sim') acc.apostilas += 1;
-        return acc;
-      },
-      { dinheiro: 0, pixTransferencia: 0, cartaoAssinatura: 0, cartaoDebito: 0, apostilas: 0 }
-    );
+    const ms = students.filter(s => s.mes === selectedMonth);
+    const totals = ms.reduce((acc, s) => {
+      acc.dinheiro += s.dinheiro;
+      acc.pixTransferencia += s.pixTransferencia;
+      acc.cartaoAssinatura += s.cartaoAssinatura;
+      acc.cartaoDebito += s.cartaoDebito;
+      if (s.apostilas === 'Sim') acc.apostilas += 1;
+      return acc;
+    }, { dinheiro: 0, pixTransferencia: 0, cartaoAssinatura: 0, cartaoDebito: 0, apostilas: 0 });
 
-    const cartaoAssinaturaLiquido = totals.cartaoAssinatura * (1 - TAXA_CARTAO_ASSINATURA);
-    const cartaoDebitoLiquido = totals.cartaoDebito * (1 - TAXA_CARTAO_DEBITO);
-    
-    const totalGeral = totals.dinheiro + totals.pixTransferencia + totals.cartaoAssinatura + totals.cartaoDebito;
-    const totalGeralLiquido = totals.dinheiro + totals.pixTransferencia + cartaoAssinaturaLiquido + cartaoDebitoLiquido;
-    
-    const comissao = totalGeralLiquido * TAXA_COMISSAO;
-    
-    const qtdAlunos = monthStudents.filter(s => s.situacao === 'Pago').length;
-
+    const assinaturaLiq = totals.cartaoAssinatura * (1 - TAXA_CARTAO_ASSINATURA);
+    const debitoLiq = totals.cartaoDebito * (1 - TAXA_CARTAO_DEBITO);
+    const totalBruto = totals.dinheiro + totals.pixTransferencia + totals.cartaoAssinatura + totals.cartaoDebito;
+    const totalLiq = totals.dinheiro + totals.pixTransferencia + assinaturaLiq + debitoLiq;
     return {
       totalDinheiro: totals.dinheiro,
       totalPix: totals.pixTransferencia,
       totalCartaoAssinatura: totals.cartaoAssinatura,
-      totalCartaoAssinaturaLiquido: cartaoAssinaturaLiquido,
+      totalCartaoAssinaturaLiquido: assinaturaLiq,
       totalCartaoDebito: totals.cartaoDebito,
-      totalCartaoDebitoLiquido: cartaoDebitoLiquido,
-      totalGeral,
-      totalGeralLiquido,
-      comissao,
-      qtdAlunos,
+      totalCartaoDebitoLiquido: debitoLiq,
+      totalGeral: totalBruto,
+      totalGeralLiquido: totalLiq,
+      comissao: totalLiq * TAXA_COMISSAO,
+      qtdAlunos: ms.filter(s => s.situacao === 'Pago').length,
       qtdApostilas: totals.apostilas,
     };
   };
 
   const summary = getFinancialSummary();
 
-  const getChartData = () => {
-    return [
-      { name: 'Dinheiro', valor: summary.totalDinheiro, liquido: summary.totalDinheiro },
-      { name: 'Pix/Transfer', valor: summary.totalPix, liquido: summary.totalPix },
-      { name: 'Cartão/Assina', valor: summary.totalCartaoAssinatura, liquido: summary.totalCartaoAssinaturaLiquido },
-      { name: 'Cartão Débito', valor: summary.totalCartaoDebito, liquido: summary.totalCartaoDebitoLiquido },
-    ];
-  };
+  const chartData = [
+    { name: 'Dinheiro', valor: summary.totalDinheiro, liquido: summary.totalDinheiro },
+    { name: 'Pix/Trans', valor: summary.totalPix, liquido: summary.totalPix },
+    { name: 'Cartão/Ass.', valor: summary.totalCartaoAssinatura, liquido: summary.totalCartaoAssinaturaLiquido },
+    { name: 'Cartão Déb.', valor: summary.totalCartaoDebito, liquido: summary.totalCartaoDebitoLiquido },
+  ];
 
+  const monthLabel = getMonthOptions().find(m => m.value === selectedMonth)?.label || selectedMonth;
+
+  // ─── PDF Export ────────────────────────────────────────────────────────────
   const exportToPDF = async () => {
     try {
       toast.loading('Gerando PDF...');
-      
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const monthLabel = getMonthOptions().find(m => m.value === selectedMonth)?.label || selectedMonth;
-      
-      // Add Logo
+      const pw = pdf.internal.pageSize.getWidth();
+
+      // Try logo
       try {
-        const logoImg = await fetch('/logo.png').then(res => res.blob());
-        const logoUrl = await new Promise<string>((resolve) => {
+        const logoBlob = await fetch('/logo.png').then(r => r.blob());
+        const logoUrl = await new Promise<string>((res) => {
           const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(logoImg);
+          reader.onloadend = () => res(reader.result as string);
+          reader.readAsDataURL(logoBlob);
         });
-        pdf.addImage(logoUrl, 'PNG', 10, 8, 25, 25);
-      } catch (err) {
-        console.log('Logo not loaded:', err);
-      }
-      
+        pdf.addImage(logoUrl, 'PNG', 10, 8, 22, 22);
+      } catch { /* skip */ }
+
       // Header
-      pdf.setFontSize(18);
-      pdf.setTextColor(59, 130, 246);
-      pdf.text('Relatório Financeiro - Esteadeb', pageWidth / 2, 15, { align: 'center' });
-      
-      pdf.setFontSize(11);
-      pdf.setTextColor(100);
-      pdf.text(`Período: ${monthLabel}`, pageWidth / 2, 22, { align: 'center' });
-      pdf.setFontSize(9);
-      pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth / 2, 27, { align: 'center' });
+      pdf.setFontSize(16); pdf.setTextColor(30, 80, 200);
+      pdf.text('Relatório Financeiro — Esteadeb', pw / 2, 16, { align: 'center' });
+      pdf.setFontSize(10); pdf.setTextColor(100);
+      pdf.text(`Período: ${monthLabel}`, pw / 2, 23, { align: 'center' });
+      pdf.setFontSize(8);
+      pdf.text(`Emitido em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`, pw / 2, 28, { align: 'center' });
 
-      // Coordinator and Core Info
-      let yPos = 35;
-      pdf.setFontSize(10);
-      pdf.setTextColor(0);
-      
+      // Line
+      pdf.setDrawColor(30, 80, 200); pdf.setLineWidth(0.5);
+      pdf.line(10, 32, pw - 10, 32);
+
+      let y = 38;
+
+      // Coordinator / Core info
       if (coordinators.length > 0) {
-        const coord = coordinators[0];
-        pdf.setFontSize(9);
-        pdf.setTextColor(59, 130, 246);
-        pdf.text('Informações do Núcleo:', 10, yPos);
-        pdf.setTextColor(0);
-        yPos += 5;
-        pdf.text(`Coordenador: ${coord.nome || 'Não informado'}`, 15, yPos);
-        yPos += 4;
-        pdf.text(`Núcleo: ${coord.nucleo || 'Não informado'}`, 15, yPos);
-        yPos += 4;
-        pdf.text(`Contato: ${coord.email || ''} ${coord.telefone ? '- ' + coord.telefone : ''}`, 15, yPos);
-        yPos += 7;
+        const c = coordinators[0];
+        pdf.setFontSize(9); pdf.setTextColor(30, 80, 200);
+        pdf.text('▸  Informações do Núcleo', 10, y); y += 5;
+        pdf.setTextColor(40);
+        pdf.text(`Núcleo: ${c.nucleo || '—'}`, 14, y); y += 4;
+        pdf.text(`Coordenador: ${c.nome || '—'}`, 14, y); y += 4;
+        if (c.email || c.telefone) { pdf.text(`Contato: ${[c.email, c.telefone].filter(Boolean).join(' | ')}`, 14, y); y += 4; }
+        y += 3;
       }
 
-      // Capture chart
+      // Chart
       if (chartRef.current) {
-        const canvas = await html2canvas(chartRef.current, { scale: 2 });
-        const imgData = canvas.toDataURL('image/png');
-        pdf.addImage(imgData, 'PNG', 10, yPos, pageWidth - 20, 50);
-        yPos += 55;
+        const canvas = await html2canvas(chartRef.current, { scale: 2, useCORS: true });
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, y, pw - 20, 48);
+        y += 53;
       }
 
       // Financial Summary
-      pdf.setFontSize(12);
-      pdf.setTextColor(0);
-      pdf.text('Resumo Financeiro', 10, yPos);
-      yPos += 7;
-      
-      pdf.setFontSize(9);
-      
-      pdf.text(`Dinheiro: R$ ${summary.totalDinheiro.toFixed(2)}`, 15, yPos);
-      yPos += 5;
-      pdf.text(`Pix/Depósito/Transferência: R$ ${summary.totalPix.toFixed(2)}`, 15, yPos);
-      yPos += 5;
-      pdf.text(`Cartão/Assinatura (bruto): R$ ${summary.totalCartaoAssinatura.toFixed(2)}`, 15, yPos);
-      yPos += 5;
-      pdf.setTextColor(220, 38, 38);
-      pdf.text(`Cartão/Assinatura (-4% taxa): R$ ${summary.totalCartaoAssinaturaLiquido.toFixed(2)}`, 15, yPos);
-      pdf.setTextColor(0);
-      yPos += 5;
-      pdf.text(`Cartão Débito (bruto): R$ ${summary.totalCartaoDebito.toFixed(2)}`, 15, yPos);
-      yPos += 5;
-      pdf.setTextColor(220, 38, 38);
-      pdf.text(`Cartão Débito (-1,7% taxa): R$ ${summary.totalCartaoDebitoLiquido.toFixed(2)}`, 15, yPos);
-      pdf.setTextColor(0);
-      yPos += 7;
-      
-      pdf.setFontSize(11);
-      pdf.setTextColor(59, 130, 246);
-      pdf.text(`Total Geral (Líquido): R$ ${summary.totalGeralLiquido.toFixed(2)}`, 15, yPos);
-      yPos += 6;
-      pdf.setTextColor(34, 197, 94);
-      pdf.text(`Comissão Coordenação (12%): R$ ${summary.comissao.toFixed(2)}`, 15, yPos);
-      yPos += 6;
-      pdf.setTextColor(0);
-      pdf.text(`Alunos Matriculados: ${summary.qtdAlunos}`, 15, yPos);
-      yPos += 6;
-      pdf.text(`Apostilas: ${summary.qtdApostilas}`, 15, yPos);
+      pdf.setFontSize(9); pdf.setTextColor(30, 80, 200);
+      pdf.text('▸  Resumo Financeiro', 10, y); y += 5;
+      pdf.setTextColor(40);
 
-      // Disciplines Section
+      const rows = [
+        ['Dinheiro', `R$ ${summary.totalDinheiro.toFixed(2)}`],
+        ['Pix / Depósito / Transferência', `R$ ${summary.totalPix.toFixed(2)}`],
+        ['Cartão/Assinatura (bruto)', `R$ ${summary.totalCartaoAssinatura.toFixed(2)}`],
+        ['  ↳ Líquido (-4% taxa)', `R$ ${summary.totalCartaoAssinaturaLiquido.toFixed(2)}`],
+        ['Cartão Débito (bruto)', `R$ ${summary.totalCartaoDebito.toFixed(2)}`],
+        ['  ↳ Líquido (-1,7% taxa)', `R$ ${summary.totalCartaoDebitoLiquido.toFixed(2)}`],
+      ];
+      rows.forEach(([label, val]) => {
+        pdf.setTextColor(label.startsWith('  ') ? 180 : 40);
+        pdf.text(label, 14, y);
+        pdf.text(val, pw - 14, y, { align: 'right' });
+        y += 4.5;
+      });
+      pdf.setTextColor(30, 80, 200); pdf.setFontSize(10);
+      pdf.text(`Total Líquido: R$ ${summary.totalGeralLiquido.toFixed(2)}`, 14, y);
+      y += 5; pdf.setTextColor(34, 150, 80); pdf.setFontSize(9);
+      pdf.text(`Comissão Coordenação (12%): R$ ${summary.comissao.toFixed(2)}`, 14, y);
+      y += 4; pdf.setTextColor(40);
+      pdf.text(`Alunos pagos: ${summary.qtdAlunos}   |   Apostilas: ${summary.qtdApostilas}`, 14, y);
+      y += 7;
+
+      // Disciplines
       if (disciplines.length > 0) {
-        yPos += 10;
-        if (yPos > 250) {
-          pdf.addPage();
-          yPos = 20;
-        }
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-        pdf.text('Disciplinas e Professores', 10, yPos);
-        yPos += 7;
-        
-        pdf.setFontSize(8);
-        disciplines.slice(0, 10).forEach((disc) => {
-          if (yPos > 280) {
-            pdf.addPage();
-            yPos = 20;
-          }
-          pdf.text(`${disc.nome} - Prof. ${disc.professor} (${disc.diasSemana} ${disc.horario})`, 15, yPos);
-          yPos += 5;
+        if (y > 245) { pdf.addPage(); y = 20; }
+        pdf.setFontSize(9); pdf.setTextColor(30, 80, 200);
+        pdf.text('▸  Disciplinas e Professores', 10, y); y += 5;
+        pdf.setFontSize(8); pdf.setTextColor(40);
+        disciplines.forEach(d => {
+          if (y > 280) { pdf.addPage(); y = 20; }
+          pdf.text(`• ${d.nome || '—'} — Prof. ${d.professor || '—'}  (${[d.diasSemana, d.horario].filter(Boolean).join(' | ')})`, 14, y);
+          y += 4.5;
         });
-        yPos += 5;
+        y += 5;
       }
 
-      // Table
-      if (yPos > 230) {
-        pdf.addPage();
-        yPos = 20;
-      }
-      
-      pdf.setFontSize(12);
-      pdf.setTextColor(0);
-      pdf.text('Lista de Alunos', 10, yPos);
-      
-      yPos += 7;
-      pdf.setFontSize(8);
-      
-      // Table header
-      pdf.setFillColor(59, 130, 246);
-      pdf.setTextColor(255);
-      pdf.rect(10, yPos - 4, pageWidth - 20, 6, 'F');
-      pdf.text('Nº', 12, yPos);
-      pdf.text('Nome', 25, yPos);
-      pdf.text('Situação', 90, yPos);
-      pdf.text('Dinheiro', 115, yPos);
-      pdf.text('Pix/Trans', 140, yPos);
-      pdf.text('Cartão', 165, yPos);
-      pdf.text('Débito', 185, yPos);
-      
-      yPos += 7;
-      
-      // Table rows
-      pdf.setTextColor(0);
-      filteredStudents.forEach((student) => {
-        if (yPos > 280) {
-          pdf.addPage();
-          yPos = 20;
-        }
-        
-        pdf.text(student.id.toString(), 12, yPos);
-        pdf.text(student.nome.substring(0, 30), 25, yPos);
-        pdf.text(student.situacao, 90, yPos);
-        pdf.text(`R$ ${student.dinheiro.toFixed(2)}`, 115, yPos);
-        pdf.text(`R$ ${student.pixTransferencia.toFixed(2)}`, 140, yPos);
-        pdf.text(`R$ ${student.cartaoAssinatura.toFixed(2)}`, 165, yPos);
-        pdf.text(`R$ ${student.cartaoDebito.toFixed(2)}`, 185, yPos);
-        
-        yPos += 6;
+      // Students table
+      if (y > 240) { pdf.addPage(); y = 20; }
+      pdf.setFontSize(9); pdf.setTextColor(30, 80, 200);
+      pdf.text('▸  Lista de Alunos', 10, y); y += 5;
+
+      // Table header bg
+      pdf.setFillColor(30, 80, 200);
+      pdf.rect(10, y - 4, pw - 20, 6, 'F');
+      pdf.setFontSize(7.5); pdf.setTextColor(255);
+      pdf.text('Nº', 12, y); pdf.text('Nome', 24, y); pdf.text('Situação', 90, y);
+      pdf.text('Dinheiro', 115, y); pdf.text('Pix/Trans', 138, y); pdf.text('C.Assina', 158, y); pdf.text('C.Débito', 178, y);
+      y += 6; pdf.setTextColor(40);
+
+      filteredStudents.forEach((s, i) => {
+        if (y > 280) { pdf.addPage(); y = 20; }
+        if (i % 2 === 0) { pdf.setFillColor(240, 245, 255); pdf.rect(10, y - 3.5, pw - 20, 5.5, 'F'); }
+        pdf.setFontSize(7.5);
+        pdf.text(String(s.numero ?? ''), 12, y);
+        pdf.text(s.nome.substring(0, 28), 24, y);
+        if (s.situacao === 'Pago') pdf.setTextColor(20, 140, 70);
+        else if (s.situacao === 'Pendente') pdf.setTextColor(200, 30, 30);
+        else pdf.setTextColor(150);
+        pdf.text(s.situacao, 90, y);
+        pdf.setTextColor(40);
+        pdf.text(`R$ ${s.dinheiro.toFixed(2)}`, 115, y);
+        pdf.text(`R$ ${s.pixTransferencia.toFixed(2)}`, 138, y);
+        pdf.text(`R$ ${s.cartaoAssinatura.toFixed(2)}`, 158, y);
+        pdf.text(`R$ ${s.cartaoDebito.toFixed(2)}`, 178, y);
+        y += 5.5;
       });
 
+      // Footer
+      const pages = (pdf as jsPDF & { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+      for (let i = 1; i <= pages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(7); pdf.setTextColor(160);
+        pdf.text(`Esteadeb — Sistema Financeiro  |  Página ${i} de ${pages}`, pw / 2, 292, { align: 'center' });
+      }
+
       pdf.save(`Relatorio_Financeiro_${selectedMonth}.pdf`);
-      toast.dismiss();
-      toast.success('PDF exportado com sucesso!');
-    } catch (error) {
-      toast.dismiss();
-      toast.error('Erro ao gerar PDF');
-      console.error(error);
+      toast.dismiss(); toast.success('PDF exportado com sucesso!');
+    } catch (err) {
+      toast.dismiss(); toast.error('Erro ao gerar PDF');
+      console.error(err);
     }
   };
 
+  // ─── Render ────────────────────────────────────────────────────────────────
+  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
+    { id: 'alunos', label: 'Alunos', icon: <GraduationCap className="w-4 h-4" /> },
+    { id: 'coordenadores', label: 'Coordenadores', icon: <UserCog className="w-4 h-4" /> },
+    { id: 'disciplinas', label: 'Disciplinas', icon: <BookOpen className="w-4 h-4" /> },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-muted/30 to-background">
-      {/* Header */}
-      <header className="bg-card border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="min-h-screen bg-background">
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-20 border-b border-border/80 bg-card/95 backdrop-blur-md">
+        <div className="container mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="Esteadeb Logo" 
-              className="w-12 h-12 object-contain"
-              crossOrigin="anonymous"
-            />
+            <div className="relative">
+              <img src="/logo.png" alt="Esteadeb" className="h-10 w-10 object-contain" crossOrigin="anonymous" />
+            </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Sistema Financeiro Esteadeb</h1>
-              <p className="text-sm text-muted-foreground">Controle Completo de Gestão</p>
+              <h1 className="text-base font-bold text-foreground leading-tight">Sistema Financeiro</h1>
+              <p className="text-xs text-muted-foreground">Esteadeb — Gestão Integrada</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="flex items-center gap-2 flex-1 md:flex-initial">
-              <Calendar className="w-4 h-4 text-muted-foreground" />
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-full md:w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {getMonthOptions().map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button variant="outline" onClick={logout} className="gap-2">
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="flex-1 sm:w-52 h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {getMonthOptions().map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => { loadStudents(); loadCoordinators(); loadDisciplines(); }} title="Recarregar">
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={logout} className="gap-1.5">
               <LogOut className="w-4 h-4" />
-              <span className="hidden md:inline">Sair</span>
+              <span className="hidden sm:inline text-sm">Sair</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 space-y-6">
-        <Tabs defaultValue="alunos" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="alunos" className="gap-2">
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Alunos</span>
-            </TabsTrigger>
-            <TabsTrigger value="coordenadores" className="gap-2">
-              <UserCog className="w-4 h-4" />
-              <span className="hidden sm:inline">Coordenadores</span>
-            </TabsTrigger>
-            <TabsTrigger value="disciplinas" className="gap-2">
-              <BookOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">Disciplinas</span>
-            </TabsTrigger>
-          </TabsList>
+      <div className="container mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6">
+        {/* ── Sidebar Navigation ── */}
+        <aside className="lg:w-52 shrink-0">
+          <nav className="lg:sticky lg:top-20 space-y-1">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`sidebar-tab w-full text-left ${activeTab === tab.id ? 'active' : ''}`}
+              >
+                {tab.icon}
+                {tab.label}
+                {activeTab === tab.id && <ChevronRight className="w-3.5 h-3.5 ml-auto" />}
+              </button>
+            ))}
 
-          {/* ALUNOS TAB */}
-          <TabsContent value="alunos" className="space-y-6">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                    <DollarSign className="w-6 h-6 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">Total Líquido</p>
-                    <p className="text-xl lg:text-2xl font-bold text-primary truncate">
-                      R$ {summary.totalGeralLiquido.toFixed(2)}
-                    </p>
-                  </div>
+            <div className="pt-4 mt-4 border-t border-border space-y-2">
+              <div className="px-4 py-2 rounded-xl bg-muted/50">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</span>
                 </div>
-              </Card>
-
-              <Card className="p-4 bg-gradient-to-br from-green-500/10 to-green-500/5 border-green-500/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
-                    <Percent className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">Comissão (12%)</p>
-                    <p className="text-xl lg:text-2xl font-bold text-green-600 truncate">
-                      R$ {summary.comissao.toFixed(2)}
-                    </p>
-                  </div>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-emerald-500" /><span>Banco conectado</span></div>
+                  <div className="flex items-center gap-1.5"><BarChart2 className="w-3 h-3 text-primary" /><span>{students.filter(s => s.mes === selectedMonth).length} alunos no mês</span></div>
                 </div>
-              </Card>
-
-              <Card className="p-4 bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center shrink-0">
-                    <Users className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">Alunos Pagos</p>
-                    <p className="text-xl lg:text-2xl font-bold text-blue-600">
-                      {summary.qtdAlunos}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card className="p-4 bg-gradient-to-br from-purple-500/10 to-purple-500/5 border-purple-500/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0">
-                    <TrendingUp className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm text-muted-foreground">Total Bruto</p>
-                    <p className="text-xl lg:text-2xl font-bold text-purple-600 truncate">
-                      R$ {summary.totalGeral.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
+              </div>
             </div>
+          </nav>
+        </aside>
 
-            {/* Chart and Details */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="p-6 lg:col-span-2">
-                <h2 className="text-xl font-bold text-foreground mb-4">Arrecadação por Forma de Pagamento</h2>
-                <div ref={chartRef}>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={getChartData()}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                      <Tooltip
-                        formatter={(value: number, name: string) => [
-                          `R$ ${value.toFixed(2)}`,
-                          name === 'valor' ? 'Bruto' : 'Líquido'
-                        ]}
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))', 
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Legend />
-                      <Bar dataKey="valor" fill="hsl(var(--primary))" name="Bruto" opacity={0.6} />
-                      <Bar dataKey="liquido" fill="hsl(var(--primary))" name="Líquido" />
-                    </BarChart>
-                  </ResponsiveContainer>
+        {/* ── Main Content ── */}
+        <main className="flex-1 min-w-0 space-y-5">
+
+          {/* ════ ALUNOS TAB ════ */}
+          {activeTab === 'alunos' && (
+            <>
+              {/* Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total Líquido', value: `R$ ${summary.totalGeralLiquido.toFixed(2)}`, icon: <DollarSign className="w-5 h-5" />, color: 'primary' },
+                  { label: 'Comissão 12%', value: `R$ ${summary.comissao.toFixed(2)}`, icon: <Percent className="w-5 h-5" />, color: 'emerald' },
+                  { label: 'Alunos Pagos', value: String(summary.qtdAlunos), icon: <Users className="w-5 h-5" />, color: 'blue' },
+                  { label: 'Total Bruto', value: `R$ ${summary.totalGeral.toFixed(2)}`, icon: <TrendingUp className="w-5 h-5" />, color: 'violet' },
+                ].map(card => (
+                  <div key={card.label} className="stat-card bg-card border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-muted-foreground font-medium">{card.label}</span>
+                      <div className={`p-1.5 rounded-lg bg-primary/10 text-primary`}>{card.icon}</div>
+                    </div>
+                    <p className="text-lg font-bold text-foreground truncate">{card.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Chart + Detail */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="tech-card p-5 lg:col-span-2">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-foreground text-sm">Arrecadação por Forma de Pagamento</h2>
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">{monthLabel}</span>
+                  </div>
+                  <div ref={chartRef}>
+                    <ResponsiveContainer width="100%" height={240}>
+                      <BarChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                        <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} tickFormatter={v => `R$${v}`} />
+                        <Tooltip
+                          formatter={(v: number, n: string) => [`R$ ${v.toFixed(2)}`, n === 'valor' ? 'Bruto' : 'Líquido']}
+                          contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '10px', fontSize: 12 }}
+                          cursor={{ fill: 'hsl(var(--muted)/0.4)' }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Bar dataKey="valor" fill="hsl(var(--primary))" opacity={0.35} name="Bruto" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="liquido" fill="hsl(var(--primary))" name="Líquido" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-              </Card>
 
-              <Card className="p-6">
-                <h2 className="text-xl font-bold text-foreground mb-4">Detalhamento</h2>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Dinheiro:</span>
-                    <span className="font-semibold">R$ {summary.totalDinheiro.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Pix/Transferência:</span>
-                    <span className="font-semibold">R$ {summary.totalPix.toFixed(2)}</span>
-                  </div>
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Cartão/Assinatura:</span>
-                      <span className="font-semibold">R$ {summary.totalCartaoAssinatura.toFixed(2)}</span>
+                <div className="tech-card p-5">
+                  <h2 className="font-semibold text-foreground text-sm mb-4">Detalhamento</h2>
+                  <div className="space-y-2.5 text-sm">
+                    {[
+                      { label: 'Dinheiro', val: summary.totalDinheiro },
+                      { label: 'Pix/Transferência', val: summary.totalPix },
+                    ].map(item => (
+                      <div key={item.label} className="flex justify-between items-center">
+                        <span className="text-muted-foreground text-xs">{item.label}</span>
+                        <span className="font-semibold text-sm">R$ {item.val.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    <div className="border-t pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground text-xs">Cartão/Assinatura</span>
+                        <span className="font-semibold text-sm">R$ {summary.totalCartaoAssinatura.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-red-500 ml-3">
+                        <span>-4% taxa</span>
+                        <span>R$ {summary.totalCartaoAssinaturaLiquido.toFixed(2)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-xs text-red-600 dark:text-red-400 ml-4">
-                      <span>(-4% taxa):</span>
-                      <span>R$ {summary.totalCartaoAssinaturaLiquido.toFixed(2)}</span>
+                    <div className="border-t pt-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground text-xs">Cartão Débito</span>
+                        <span className="font-semibold text-sm">R$ {summary.totalCartaoDebito.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-red-500 ml-3">
+                        <span>-1,7% taxa</span>
+                        <span>R$ {summary.totalCartaoDebitoLiquido.toFixed(2)}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Cartão Débito:</span>
-                      <span className="font-semibold">R$ {summary.totalCartaoDebito.toFixed(2)}</span>
+                    <div className="border-t pt-3 mt-1">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-primary text-sm">Total Líquido</span>
+                        <span className="font-bold text-primary">R$ {summary.totalGeralLiquido.toFixed(2)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-xs text-red-600 dark:text-red-400 ml-4">
-                      <span>(-1,7% taxa):</span>
-                      <span>R$ {summary.totalCartaoDebitoLiquido.toFixed(2)}</span>
+                    <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-emerald-700 dark:text-emerald-400 text-xs font-semibold">Comissão (12%)</span>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400 text-sm">R$ {summary.comissao.toFixed(2)}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="border-t pt-3 mt-3">
-                    <div className="flex justify-between text-base">
-                      <span className="font-semibold text-primary">Total Líquido:</span>
-                      <span className="font-bold text-primary">R$ {summary.totalGeralLiquido.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div className="border-t pt-3 mt-3 bg-green-50 dark:bg-green-950/20 -mx-6 px-6 py-3 rounded-lg">
-                    <div className="flex justify-between">
-                      <span className="font-semibold text-green-700 dark:text-green-400">Comissão (12%):</span>
-                      <span className="font-bold text-green-700 dark:text-green-400">R$ {summary.comissao.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div className="border-t pt-3 mt-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Apostilas:</span>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">Apostilas solicitadas</span>
                       <span className="font-semibold">{summary.qtdApostilas}</span>
                     </div>
                   </div>
                 </div>
-              </Card>
+              </div>
+
+              {/* Table Controls */}
+              <div className="tech-card p-5">
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Buscar por nome..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-9 h-9" />
+                  </div>
+                  <Select value={filterSituacao} onValueChange={setFilterSituacao}>
+                    <SelectTrigger className="w-full sm:w-40 h-9">
+                      <SelectValue placeholder="Situação" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      <SelectItem value="Pago">Pago</SelectItem>
+                      <SelectItem value="Pendente">Pendente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={addStudent} className="gap-1.5 h-9 flex-1 sm:flex-initial">
+                      <Plus className="w-4 h-4" />Adicionar
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={exportToPDF} className="gap-1.5 h-9 flex-1 sm:flex-initial">
+                      <Download className="w-4 h-4" />PDF
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Table */}
+                <div className="border border-border rounded-xl overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50 border-b border-border">
+                        {['Nº', 'Matrícula', 'Nome', 'Dinheiro', 'Pix/Trans', 'Cartão/Ass.', 'Cartão Déb.', 'Situação', 'Apostilas', 'Obs', ''].map(h => (
+                          <th key={h} className="text-left text-xs font-semibold text-muted-foreground px-3 py-2.5 whitespace-nowrap first:pl-4 last:pr-4">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loadingStudents ? (
+                        <tr><td colSpan={11} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /><p className="text-xs">Carregando dados...</p></td></tr>
+                      ) : filteredStudents.length === 0 ? (
+                        <tr><td colSpan={11} className="text-center py-10">
+                          <GraduationCap className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground">Nenhum registro. Clique em "Adicionar".</p>
+                        </td></tr>
+                      ) : filteredStudents.map((s, idx) => (
+                        <tr key={s.id} className={`border-b border-border/50 transition-colors hover:bg-muted/20 ${idx % 2 === 1 ? 'bg-muted/10' : ''}`}>
+                          <td className="pl-4 py-2 text-xs text-muted-foreground font-mono font-semibold">
+                            <div className="flex items-center gap-1">
+                              {s.numero}
+                              {savingIds.has(s.id) && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                            </div>
+                          </td>
+                          <td className="px-2 py-1.5 min-w-[100px]">
+                            <Input value={s.matricula} onChange={e => updateStudent(s.id, 'matricula', e.target.value)} className="table-cell-input" placeholder="—" />
+                          </td>
+                          <td className="px-2 py-1.5 min-w-[160px]">
+                            <Input value={s.nome} onChange={e => updateStudent(s.id, 'nome', e.target.value)} className="table-cell-input" placeholder="Nome completo" />
+                          </td>
+                          {(['dinheiro', 'pixTransferencia', 'cartaoAssinatura', 'cartaoDebito'] as const).map(field => (
+                            <td key={field} className="px-2 py-1.5 min-w-[100px]">
+                              <Input type="number" value={s[field] as number} onChange={e => updateStudent(s.id, field, parseFloat(e.target.value) || 0)} className="table-cell-input" step="0.01" placeholder="0.00" />
+                            </td>
+                          ))}
+                          <td className="px-3 py-1.5 whitespace-nowrap">
+                            {s.situacao === 'Pago' ? (
+                              <span className="badge-pago"><CheckCircle className="w-3 h-3" />Pago</span>
+                            ) : s.situacao === 'Pendente' ? (
+                              <span className="badge-pendente"><Clock className="w-3 h-3" />Pendente</span>
+                            ) : (
+                              <span className="badge-neutro">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1.5 min-w-[90px]">
+                            <Select value={s.apostilas} onValueChange={v => updateStudent(s.id, 'apostilas', v)}>
+                              <SelectTrigger className="h-8 text-xs border-0 bg-transparent focus:bg-background focus:ring-1 focus:ring-primary/50">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Sim">Sim</SelectItem>
+                                <SelectItem value="Não">Não</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-2 py-1.5 min-w-[140px]">
+                            <Input value={s.obs} onChange={e => updateStudent(s.id, 'obs', e.target.value)} className="table-cell-input" placeholder="Observações..." />
+                          </td>
+                          <td className="pr-4 py-1.5">
+                            <Button variant="ghost" size="sm" onClick={() => deleteStudent(s.id)} className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
+                  <span>{filteredStudents.length} registro(s) • {monthLabel}</span>
+                  <span className="flex items-center gap-1"><Database className="w-3 h-3 text-emerald-500" />Sincronizado com banco de dados</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ════ COORDENADORES TAB ════ */}
+          {activeTab === 'coordenadores' && (
+            <div className="tech-card p-5">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="font-semibold text-foreground">Coordenadores do Núcleo</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Responsáveis pela gestão e coordenação</p>
+                </div>
+                <Button size="sm" onClick={addCoordinator} className="gap-1.5 h-9">
+                  <Plus className="w-4 h-4" />Adicionar
+                </Button>
+              </div>
+
+              <div className="border border-border rounded-xl overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 border-b border-border">
+                      {['Nº', 'Nome', 'Email', 'Telefone', 'Núcleo', 'Data Início', ''].map(h => (
+                        <th key={h} className="text-left text-xs font-semibold text-muted-foreground px-3 py-2.5 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingCoords ? (
+                      <tr><td colSpan={7} className="text-center py-10"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
+                    ) : coordinators.length === 0 ? (
+                      <tr><td colSpan={7} className="text-center py-10 text-muted-foreground text-sm">Nenhum coordenador cadastrado.</td></tr>
+                    ) : coordinators.map((c, idx) => (
+                      <tr key={c.id} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 1 ? 'bg-muted/10' : ''}`}>
+                        <td className="pl-4 py-2 text-xs text-muted-foreground font-mono">{idx + 1}</td>
+                        <td className="px-2 py-1.5 min-w-[180px]"><Input value={c.nome} onChange={e => updateCoordinator(c.id, 'nome', e.target.value)} className="table-cell-input" placeholder="Nome completo" /></td>
+                        <td className="px-2 py-1.5 min-w-[180px]"><Input type="email" value={c.email} onChange={e => updateCoordinator(c.id, 'email', e.target.value)} className="table-cell-input" placeholder="email@exemplo.com" /></td>
+                        <td className="px-2 py-1.5 min-w-[130px]"><Input value={c.telefone} onChange={e => updateCoordinator(c.id, 'telefone', e.target.value)} className="table-cell-input" placeholder="(00) 00000-0000" /></td>
+                        <td className="px-2 py-1.5 min-w-[160px]"><Input value={c.nucleo} onChange={e => updateCoordinator(c.id, 'nucleo', e.target.value)} className="table-cell-input" placeholder="Nome do núcleo" /></td>
+                        <td className="px-2 py-1.5 min-w-[130px]"><Input type="date" value={c.dataInicio} onChange={e => updateCoordinator(c.id, 'dataInicio', e.target.value)} className="table-cell-input" /></td>
+                        <td className="pr-4 py-1.5">
+                          <Button variant="ghost" size="sm" onClick={() => deleteCoordinator(c.id)} className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
+          )}
 
-            {/* Controls */}
-            <Card className="p-6">
-              <div className="flex flex-col md:flex-row gap-4 mb-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nome..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+          {/* ════ DISCIPLINAS TAB ════ */}
+          {activeTab === 'disciplinas' && (
+            <div className="tech-card p-5">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="font-semibold text-foreground">Disciplinas e Professores</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Grade curricular e responsáveis</p>
                 </div>
-                <Select value={filterSituacao} onValueChange={setFilterSituacao}>
-                  <SelectTrigger className="w-full md:w-48">
-                    <SelectValue placeholder="Filtrar situação" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="Pago">Pago</SelectItem>
-                    <SelectItem value="Pendente">Pendente</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex gap-2">
-                  <Button onClick={addStudent} className="gap-2 flex-1 md:flex-initial">
-                    <Plus className="w-4 h-4" />
-                    Adicionar
-                  </Button>
-                  <Button onClick={exportToPDF} variant="outline" className="gap-2 flex-1 md:flex-initial">
-                    <Download className="w-4 h-4" />
-                    <span className="hidden sm:inline">PDF</span>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Table */}
-              <div className="border rounded-lg overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-16">Nº</TableHead>
-                      <TableHead className="min-w-32">Matrícula</TableHead>
-                      <TableHead className="min-w-48">Nome</TableHead>
-                      <TableHead className="min-w-32">Dinheiro</TableHead>
-                      <TableHead className="min-w-40">Pix/Transfer</TableHead>
-                      <TableHead className="min-w-40">Cartão/Assina</TableHead>
-                      <TableHead className="min-w-32">Cartão Déb</TableHead>
-                      <TableHead className="w-28">Situação</TableHead>
-                      <TableHead className="w-32">Apostilas?</TableHead>
-                      <TableHead className="min-w-48">Obs</TableHead>
-                      <TableHead className="w-20">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStudents.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.id}</TableCell>
-                        <TableCell>
-                          <Input
-                            value={student.matricula}
-                            onChange={(e) => updateStudent(student.id, 'matricula', e.target.value)}
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={student.nome}
-                            onChange={(e) => updateStudent(student.id, 'nome', e.target.value)}
-                            className="h-8"
-                            required
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={student.dinheiro}
-                            onChange={(e) =>
-                              updateStudent(student.id, 'dinheiro', parseFloat(e.target.value) || 0)
-                            }
-                            className="h-8"
-                            step="0.01"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={student.pixTransferencia}
-                            onChange={(e) =>
-                              updateStudent(
-                                student.id,
-                                'pixTransferencia',
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="h-8"
-                            step="0.01"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={student.cartaoAssinatura}
-                            onChange={(e) =>
-                              updateStudent(
-                                student.id,
-                                'cartaoAssinatura',
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="h-8"
-                            step="0.01"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={student.cartaoDebito}
-                            onChange={(e) =>
-                              updateStudent(
-                                student.id,
-                                'cartaoDebito',
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                            className="h-8"
-                            step="0.01"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full whitespace-nowrap ${
-                              student.situacao === 'Pago'
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                : student.situacao === 'Pendente'
-                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                            }`}
-                          >
-                            {student.situacao}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={student.apostilas}
-                            onValueChange={(value) => updateStudent(student.id, 'apostilas', value)}
-                          >
-                            <SelectTrigger className="h-8">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Sim">Sim</SelectItem>
-                              <SelectItem value="Não">Não</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={student.obs}
-                            onChange={(e) => updateStudent(student.id, 'obs', e.target.value)}
-                            className="h-8"
-                            placeholder="Observações..."
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteStudent(student.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {filteredStudents.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                          Nenhum registro encontrado para este mês. Clique em "Adicionar" para começar.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-          </TabsContent>
-
-          {/* COORDENADORES TAB */}
-          <TabsContent value="coordenadores" className="space-y-6">
-            <Card className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-foreground">Coordenadores do Núcleo</h2>
-                <Button onClick={addCoordinator} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Adicionar
+                <Button size="sm" onClick={addDiscipline} className="gap-1.5 h-9">
+                  <Plus className="w-4 h-4" />Adicionar
                 </Button>
               </div>
 
-              <div className="border rounded-lg overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-16">Nº</TableHead>
-                      <TableHead className="min-w-48">Nome</TableHead>
-                      <TableHead className="min-w-48">Email</TableHead>
-                      <TableHead className="min-w-32">Telefone</TableHead>
-                      <TableHead className="min-w-48">Núcleo</TableHead>
-                      <TableHead className="min-w-32">Data Início</TableHead>
-                      <TableHead className="w-20">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {coordinators.map((coordinator) => (
-                      <TableRow key={coordinator.id}>
-                        <TableCell className="font-medium">{coordinator.id}</TableCell>
-                        <TableCell>
-                          <Input
-                            value={coordinator.nome}
-                            onChange={(e) => updateCoordinator(coordinator.id, 'nome', e.target.value)}
-                            className="h-8"
-                            placeholder="Nome completo"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="email"
-                            value={coordinator.email}
-                            onChange={(e) => updateCoordinator(coordinator.id, 'email', e.target.value)}
-                            className="h-8"
-                            placeholder="email@exemplo.com"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={coordinator.telefone}
-                            onChange={(e) => updateCoordinator(coordinator.id, 'telefone', e.target.value)}
-                            className="h-8"
-                            placeholder="(00) 00000-0000"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={coordinator.nucleo}
-                            onChange={(e) => updateCoordinator(coordinator.id, 'nucleo', e.target.value)}
-                            className="h-8"
-                            placeholder="Nome do núcleo"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="date"
-                            value={coordinator.dataInicio}
-                            onChange={(e) => updateCoordinator(coordinator.id, 'dataInicio', e.target.value)}
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteCoordinator(coordinator.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
+              <div className="border border-border rounded-xl overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/50 border-b border-border">
+                      {['Nº', 'Disciplina', 'Professor Responsável', 'Carga Horária', 'Dias da Semana', 'Horário', ''].map(h => (
+                        <th key={h} className="text-left text-xs font-semibold text-muted-foreground px-3 py-2.5 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingDiscs ? (
+                      <tr><td colSpan={7} className="text-center py-10"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></td></tr>
+                    ) : disciplines.length === 0 ? (
+                      <tr><td colSpan={7} className="text-center py-10 text-muted-foreground text-sm">Nenhuma disciplina cadastrada.</td></tr>
+                    ) : disciplines.map((d, idx) => (
+                      <tr key={d.id} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${idx % 2 === 1 ? 'bg-muted/10' : ''}`}>
+                        <td className="pl-4 py-2 text-xs text-muted-foreground font-mono">{idx + 1}</td>
+                        <td className="px-2 py-1.5 min-w-[160px]"><Input value={d.nome} onChange={e => updateDiscipline(d.id, 'nome', e.target.value)} className="table-cell-input" placeholder="Nome da disciplina" /></td>
+                        <td className="px-2 py-1.5 min-w-[180px]"><Input value={d.professor} onChange={e => updateDiscipline(d.id, 'professor', e.target.value)} className="table-cell-input" placeholder="Nome do professor" /></td>
+                        <td className="px-2 py-1.5 min-w-[110px]"><Input type="number" value={d.cargaHoraria} onChange={e => updateDiscipline(d.id, 'cargaHoraria', parseInt(e.target.value) || 0)} className="table-cell-input" placeholder="0h" /></td>
+                        <td className="px-2 py-1.5 min-w-[160px]"><Input value={d.diasSemana} onChange={e => updateDiscipline(d.id, 'diasSemana', e.target.value)} className="table-cell-input" placeholder="Seg, Qua, Sex" /></td>
+                        <td className="px-2 py-1.5 min-w-[130px]"><Input value={d.horario} onChange={e => updateDiscipline(d.id, 'horario', e.target.value)} className="table-cell-input" placeholder="19:00–21:00" /></td>
+                        <td className="pr-4 py-1.5">
+                          <Button variant="ghost" size="sm" onClick={() => deleteDiscipline(d.id)} className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10">
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ))}
-                    {coordinators.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          Nenhum coordenador cadastrado. Clique em "Adicionar" para começar.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
-            </Card>
-          </TabsContent>
-
-          {/* DISCIPLINAS TAB */}
-          <TabsContent value="disciplinas" className="space-y-6">
-            <Card className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-foreground">Disciplinas e Professores</h2>
-                <Button onClick={addDiscipline} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Adicionar
-                </Button>
-              </div>
-
-              <div className="border rounded-lg overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-16">Nº</TableHead>
-                      <TableHead className="min-w-48">Disciplina</TableHead>
-                      <TableHead className="min-w-48">Professor Responsável</TableHead>
-                      <TableHead className="min-w-32">Carga Horária</TableHead>
-                      <TableHead className="min-w-40">Dias da Semana</TableHead>
-                      <TableHead className="min-w-32">Horário</TableHead>
-                      <TableHead className="w-20">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {disciplines.map((discipline) => (
-                      <TableRow key={discipline.id}>
-                        <TableCell className="font-medium">{discipline.id}</TableCell>
-                        <TableCell>
-                          <Input
-                            value={discipline.nome}
-                            onChange={(e) => updateDiscipline(discipline.id, 'nome', e.target.value)}
-                            className="h-8"
-                            placeholder="Nome da disciplina"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={discipline.professor}
-                            onChange={(e) => updateDiscipline(discipline.id, 'professor', e.target.value)}
-                            className="h-8"
-                            placeholder="Nome do professor"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={discipline.cargaHoraria}
-                            onChange={(e) =>
-                              updateDiscipline(discipline.id, 'cargaHoraria', parseInt(e.target.value) || 0)
-                            }
-                            className="h-8"
-                            placeholder="Horas"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={discipline.diasSemana}
-                            onChange={(e) => updateDiscipline(discipline.id, 'diasSemana', e.target.value)}
-                            className="h-8"
-                            placeholder="Ex: Seg, Qua, Sex"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={discipline.horario}
-                            onChange={(e) => updateDiscipline(discipline.id, 'horario', e.target.value)}
-                            className="h-8"
-                            placeholder="Ex: 19:00 - 21:00"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteDiscipline(discipline.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {disciplines.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          Nenhuma disciplina cadastrada. Clique em "Adicionar" para começar.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 };

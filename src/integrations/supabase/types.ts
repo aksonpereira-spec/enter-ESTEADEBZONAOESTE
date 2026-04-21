@@ -3109,7 +3109,114 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      coordinators: {
+        Row: {
+          created_at: string | null
+          data_inicio: string | null
+          email: string | null
+          id: string
+          nome: string | null
+          nucleo: string | null
+          telefone: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_inicio?: string | null
+          email?: string | null
+          id?: string
+          nome?: string | null
+          nucleo?: string | null
+          telefone?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_inicio?: string | null
+          email?: string | null
+          id?: string
+          nome?: string | null
+          nucleo?: string | null
+          telefone?: string | null
+        }
+        Relationships: []
+      }
+      disciplines: {
+        Row: {
+          carga_horaria: number | null
+          created_at: string | null
+          dias_semana: string | null
+          horario: string | null
+          id: string
+          nome: string | null
+          professor: string | null
+        }
+        Insert: {
+          carga_horaria?: number | null
+          created_at?: string | null
+          dias_semana?: string | null
+          horario?: string | null
+          id?: string
+          nome?: string | null
+          professor?: string | null
+        }
+        Update: {
+          carga_horaria?: number | null
+          created_at?: string | null
+          dias_semana?: string | null
+          horario?: string | null
+          id?: string
+          nome?: string | null
+          professor?: string | null
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          apostilas: string | null
+          cartao_assinatura: number | null
+          cartao_debito: number | null
+          created_at: string | null
+          dinheiro: number | null
+          id: string
+          matricula: string | null
+          mes: string
+          nome: string | null
+          numero: number | null
+          obs: string | null
+          pix_transferencia: number | null
+          situacao: string | null
+        }
+        Insert: {
+          apostilas?: string | null
+          cartao_assinatura?: number | null
+          cartao_debito?: number | null
+          created_at?: string | null
+          dinheiro?: number | null
+          id?: string
+          matricula?: string | null
+          mes?: string
+          nome?: string | null
+          numero?: number | null
+          obs?: string | null
+          pix_transferencia?: number | null
+          situacao?: string | null
+        }
+        Update: {
+          apostilas?: string | null
+          cartao_assinatura?: number | null
+          cartao_debito?: number | null
+          created_at?: string | null
+          dinheiro?: number | null
+          id?: string
+          matricula?: string | null
+          mes?: string
+          nome?: string | null
+          numero?: number | null
+          obs?: string | null
+          pix_transferencia?: number | null
+          situacao?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,0 +1,48 @@
+
+-- Tabela de Alunos
+CREATE TABLE IF NOT EXISTS public.students (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  numero INTEGER,
+  matricula TEXT DEFAULT '',
+  nome TEXT DEFAULT '',
+  dinheiro NUMERIC(10,2) DEFAULT 0,
+  pix_transferencia NUMERIC(10,2) DEFAULT 0,
+  cartao_assinatura NUMERIC(10,2) DEFAULT 0,
+  cartao_debito NUMERIC(10,2) DEFAULT 0,
+  situacao TEXT DEFAULT '-',
+  apostilas TEXT DEFAULT 'Não',
+  obs TEXT DEFAULT '',
+  mes TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on students" ON public.students FOR ALL USING (true) WITH CHECK (true);
+
+-- Tabela de Coordenadores
+CREATE TABLE IF NOT EXISTS public.coordinators (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome TEXT DEFAULT '',
+  email TEXT DEFAULT '',
+  telefone TEXT DEFAULT '',
+  nucleo TEXT DEFAULT '',
+  data_inicio DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.coordinators ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on coordinators" ON public.coordinators FOR ALL USING (true) WITH CHECK (true);
+
+-- Tabela de Disciplinas
+CREATE TABLE IF NOT EXISTS public.disciplines (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome TEXT DEFAULT '',
+  professor TEXT DEFAULT '',
+  carga_horaria INTEGER DEFAULT 0,
+  dias_semana TEXT DEFAULT '',
+  horario TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.disciplines ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow all on disciplines" ON public.disciplines FOR ALL USING (true) WITH CHECK (true);

@@ -1,5 +1,10 @@
+export const TAXA_CARTAO_ASSINATURA = 0.04;
+export const TAXA_CARTAO_DEBITO = 0.017;
+export const TAXA_COMISSAO = 0.12;
+
 export interface Student {
-  id: number;
+  id: string;
+  numero: number;
   matricula: string;
   nome: string;
   dinheiro: number;
@@ -9,11 +14,11 @@ export interface Student {
   situacao: 'Pago' | 'Pendente' | '-';
   apostilas: 'Sim' | 'Não';
   obs: string;
-  mes: string; // formato: "YYYY-MM"
+  mes: string;
 }
 
 export interface Coordinator {
-  id: number;
+  id: string;
   nome: string;
   email: string;
   telefone: string;
@@ -22,15 +27,13 @@ export interface Coordinator {
 }
 
 export interface Discipline {
-  id: number;
+  id: string;
   nome: string;
   professor: string;
   cargaHoraria: number;
   diasSemana: string;
   horario: string;
 }
-
-export type PaymentType = 'dinheiro' | 'pixTransferencia' | 'cartaoAssinatura' | 'cartaoDebito';
 
 export interface FinancialSummary {
   totalDinheiro: number;
@@ -45,7 +48,3 @@ export interface FinancialSummary {
   qtdAlunos: number;
   qtdApostilas: number;
 }
-
-export const TAXA_CARTAO_ASSINATURA = 0.04; // 4%
-export const TAXA_CARTAO_DEBITO = 0.017; // 1.7%
-export const TAXA_COMISSAO = 0.12; // 12%
