@@ -60,6 +60,7 @@ const Dashboard = () => {
         cartaoDebito: Number(r.cartao_debito) || 0,
         situacao: (r.situacao as 'Pago' | 'Pendente' | '-') ?? '-',
         apostilas: (r.apostilas as 'Sim' | 'Não') ?? 'Não',
+        qtdApostilas: r.qtd_apostilas ?? 0,
         obs: r.obs ?? '',
         mes: r.mes ?? '',
       })));
@@ -145,6 +146,7 @@ const Dashboard = () => {
       cartao_debito: 0,
       situacao: '-',
       apostilas: 'Não',
+      qtd_apostilas: 0,
       obs: '',
       mes: selectedMonth,
     }).select().single();
@@ -160,6 +162,7 @@ const Dashboard = () => {
         cartaoDebito: 0,
         situacao: '-',
         apostilas: 'Não',
+        qtdApostilas: 0,
         obs: '',
         mes: selectedMonth,
       }]);
@@ -194,6 +197,7 @@ const Dashboard = () => {
         cartao_debito: updated.cartaoDebito,
         situacao: updated.situacao,
         apostilas: updated.apostilas,
+        qtd_apostilas: updated.qtdApostilas,
         obs: updated.obs,
       }).eq('id', id);
       setSaving(id, false);
@@ -297,7 +301,7 @@ const Dashboard = () => {
       acc.pixTransferencia += s.pixTransferencia;
       acc.cartaoAssinatura += s.cartaoAssinatura;
       acc.cartaoDebito += s.cartaoDebito;
-      if (s.apostilas === 'Sim') acc.apostilas += 1;
+      acc.apostilas += s.qtdApostilas ?? 0;
       return acc;
     }, { dinheiro: 0, pixTransferencia: 0, cartaoAssinatura: 0, cartaoDebito: 0, apostilas: 0 });
 
@@ -406,7 +410,7 @@ const Dashboard = () => {
       y += 5; pdf.setTextColor(34, 150, 80); pdf.setFontSize(9);
       pdf.text(`Comissão Coordenação (12%): R$ ${summary.comissao.toFixed(2)}`, 14, y);
       y += 4; pdf.setTextColor(40);
-      pdf.text(`Alunos pagos: ${summary.qtdAlunos}   |   Apostilas: ${summary.qtdApostilas}`, 14, y);
+      pdf.text(`Alunos pagos: ${summary.qtdAlunos}   |   Apostilas (total): ${summary.qtdApostilas} un.`, 14, y);
       y += 7;
 
       // Disciplines
@@ -432,8 +436,8 @@ const Dashboard = () => {
       pdf.setFillColor(30, 80, 200);
       pdf.rect(10, y - 4, pw - 20, 6, 'F');
       pdf.setFontSize(7.5); pdf.setTextColor(255);
-      pdf.text('Nº', 12, y); pdf.text('Nome', 24, y); pdf.text('Situação', 90, y);
-      pdf.text('Dinheiro', 115, y); pdf.text('Pix/Trans', 138, y); pdf.text('C.Assina', 158, y); pdf.text('C.Débito', 178, y);
+      pdf.text('Nº', 12, y); pdf.text('Nome', 24, y); pdf.text('Situação', 86, y);
+      pdf.text('Dinheiro', 111, y); pdf.text('Pix/Trans', 132, y); pdf.text('C.Assina', 151, y); pdf.text('C.Débito', 169, y); pdf.text('Apost.', 188, y);
       y += 6; pdf.setTextColor(40);
 
       filteredStudents.forEach((s, i) => {
@@ -441,16 +445,17 @@ const Dashboard = () => {
         if (i % 2 === 0) { pdf.setFillColor(240, 245, 255); pdf.rect(10, y - 3.5, pw - 20, 5.5, 'F'); }
         pdf.setFontSize(7.5);
         pdf.text(String(s.numero ?? ''), 12, y);
-        pdf.text(s.nome.substring(0, 28), 24, y);
+        pdf.text(s.nome.substring(0, 26), 24, y);
         if (s.situacao === 'Pago') pdf.setTextColor(20, 140, 70);
         else if (s.situacao === 'Pendente') pdf.setTextColor(200, 30, 30);
         else pdf.setTextColor(150);
-        pdf.text(s.situacao, 90, y);
+        pdf.text(s.situacao, 86, y);
         pdf.setTextColor(40);
-        pdf.text(`R$ ${s.dinheiro.toFixed(2)}`, 115, y);
-        pdf.text(`R$ ${s.pixTransferencia.toFixed(2)}`, 138, y);
-        pdf.text(`R$ ${s.cartaoAssinatura.toFixed(2)}`, 158, y);
-        pdf.text(`R$ ${s.cartaoDebito.toFixed(2)}`, 178, y);
+        pdf.text(`R$ ${s.dinheiro.toFixed(2)}`, 111, y);
+        pdf.text(`R$ ${s.pixTransferencia.toFixed(2)}`, 132, y);
+        pdf.text(`R$ ${s.cartaoAssinatura.toFixed(2)}`, 151, y);
+        pdf.text(`R$ ${s.cartaoDebito.toFixed(2)}`, 169, y);
+        pdf.text(s.qtdApostilas > 0 ? String(s.qtdApostilas) : '—', 191, y);
         y += 5.5;
       });
 
@@ -470,6 +475,10 @@ const Dashboard = () => {
     }
   };
 
+  // Nome do coordenador principal (fallback para Akson Pereira)
+  const mainCoordinator = coordinators[0]?.nome?.trim() || 'Akson Pereira';
+  const mainNucleo = coordinators[0]?.nucleo?.trim() || '';
+
   // ─── Render ────────────────────────────────────────────────────────────────
   const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'alunos', label: 'Alunos', icon: <GraduationCap className="w-4 h-4" /> },
@@ -488,7 +497,10 @@ const Dashboard = () => {
             </div>
             <div>
               <h1 className="text-base font-bold text-foreground leading-tight">Sistema Financeiro</h1>
-              <p className="text-xs text-muted-foreground">Esteadeb — Gestão Integrada</p>
+              <p className="text-xs text-muted-foreground">
+                Coordenador: <span className="font-semibold text-primary">{mainCoordinator}</span>
+                {mainNucleo && <span className="text-muted-foreground"> — {mainNucleo}</span>}
+              </p>
             </div>
           </div>
 
@@ -532,14 +544,19 @@ const Dashboard = () => {
             ))}
 
             <div className="pt-4 mt-4 border-t border-border space-y-2">
-              <div className="px-4 py-2 rounded-xl bg-muted/50">
-                <div className="flex items-center gap-2 mb-2">
+              <div className="px-4 py-3 rounded-xl bg-muted/50 space-y-2">
+                <div className="flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5 text-primary" />
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</span>
                 </div>
-                <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="space-y-1.5 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5"><Database className="w-3 h-3 text-emerald-500" /><span>Banco conectado</span></div>
                   <div className="flex items-center gap-1.5"><BarChart2 className="w-3 h-3 text-primary" /><span>{students.filter(s => s.mes === selectedMonth).length} alunos no mês</span></div>
+                  <div className="pt-1 border-t border-border">
+                    <p className="text-xs font-medium text-foreground/80">Coordenador:</p>
+                    <p className="text-xs text-primary font-semibold">{mainCoordinator}</p>
+                    {mainNucleo && <p className="text-xs text-muted-foreground">{mainNucleo}</p>}
+                  </div>
                 </div>
               </div>
             </div>
@@ -641,8 +658,8 @@ const Dashboard = () => {
                       </div>
                     </div>
                     <div className="flex justify-between items-center text-xs">
-                      <span className="text-muted-foreground">Apostilas solicitadas</span>
-                      <span className="font-semibold">{summary.qtdApostilas}</span>
+                      <span className="text-muted-foreground">Total de apostilas</span>
+                      <span className="font-bold text-primary">{summary.qtdApostilas} un.</span>
                     </div>
                   </div>
                 </div>
@@ -680,16 +697,16 @@ const Dashboard = () => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-muted/50 border-b border-border">
-                        {['Nº', 'Matrícula', 'Nome', 'Dinheiro', 'Pix/Trans', 'Cartão/Ass.', 'Cartão Déb.', 'Situação', 'Apostilas', 'Obs', ''].map(h => (
+                        {['Nº', 'Matrícula', 'Nome', 'Dinheiro', 'Pix/Trans', 'Cartão/Ass.', 'Cartão Déb.', 'Situação', 'Apostilas?', 'Qtd. Apost.', 'Obs', ''].map(h => (
                           <th key={h} className="text-left text-xs font-semibold text-muted-foreground px-3 py-2.5 whitespace-nowrap first:pl-4 last:pr-4">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {loadingStudents ? (
-                        <tr><td colSpan={11} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /><p className="text-xs">Carregando dados...</p></td></tr>
+                        <tr><td colSpan={12} className="text-center py-10 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /><p className="text-xs">Carregando dados...</p></td></tr>
                       ) : filteredStudents.length === 0 ? (
-                        <tr><td colSpan={11} className="text-center py-10">
+                        <tr><td colSpan={12} className="text-center py-10">
                           <GraduationCap className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
                           <p className="text-sm text-muted-foreground">Nenhum registro. Clique em "Adicionar".</p>
                         </td></tr>
@@ -722,7 +739,10 @@ const Dashboard = () => {
                             )}
                           </td>
                           <td className="px-2 py-1.5 min-w-[90px]">
-                            <Select value={s.apostilas} onValueChange={v => updateStudent(s.id, 'apostilas', v)}>
+                            <Select value={s.apostilas} onValueChange={v => {
+                              updateStudent(s.id, 'apostilas', v);
+                              if (v === 'Não') updateStudent(s.id, 'qtdApostilas', 0);
+                            }}>
                               <SelectTrigger className="h-8 text-xs border-0 bg-transparent focus:bg-background focus:ring-1 focus:ring-primary/50">
                                 <SelectValue />
                               </SelectTrigger>
@@ -731,6 +751,22 @@ const Dashboard = () => {
                                 <SelectItem value="Não">Não</SelectItem>
                               </SelectContent>
                             </Select>
+                          </td>
+                          <td className="px-2 py-1.5 min-w-[80px]">
+                            <Input
+                              type="number"
+                              min={0}
+                              value={s.qtdApostilas}
+                              onChange={e => {
+                                const qty = parseInt(e.target.value) || 0;
+                                updateStudent(s.id, 'qtdApostilas', qty);
+                                if (qty > 0 && s.apostilas !== 'Sim') updateStudent(s.id, 'apostilas', 'Sim');
+                                if (qty === 0 && s.apostilas === 'Sim') updateStudent(s.id, 'apostilas', 'Não');
+                              }}
+                              className="table-cell-input"
+                              placeholder="0"
+                              disabled={s.apostilas === 'Não'}
+                            />
                           </td>
                           <td className="px-2 py-1.5 min-w-[140px]">
                             <Input value={s.obs} onChange={e => updateStudent(s.id, 'obs', e.target.value)} className="table-cell-input" placeholder="Observações..." />

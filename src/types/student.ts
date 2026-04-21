@@ -13,6 +13,7 @@ export interface Student {
   cartaoDebito: number;
   situacao: 'Pago' | 'Pendente' | '-';
   apostilas: 'Sim' | 'Não';
+  qtdApostilas: number;
   obs: string;
   mes: string;
 }

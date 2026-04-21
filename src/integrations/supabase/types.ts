@@ -3183,6 +3183,7 @@ export type Database = {
           numero: number | null
           obs: string | null
           pix_transferencia: number | null
+          qtd_apostilas: number | null
           situacao: string | null
         }
         Insert: {
@@ -3198,6 +3199,7 @@ export type Database = {
           numero?: number | null
           obs?: string | null
           pix_transferencia?: number | null
+          qtd_apostilas?: number | null
           situacao?: string | null
         }
         Update: {
@@ -3213,6 +3215,7 @@ export type Database = {
           numero?: number | null
           obs?: string | null
           pix_transferencia?: number | null
+          qtd_apostilas?: number | null
           situacao?: string | null
         }
         Relationships: []
