@@ -26,7 +26,7 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       target: 'es2015',
       cssTarget: 'chrome90',
-      minify: 'terser',
+      minify: 'esbuild',
       rollupOptions: {
         output: {
           manualChunks: undefined,
