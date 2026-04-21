@@ -9,6 +9,25 @@ export interface Student {
   situacao: 'Pago' | 'Pendente' | '-';
   apostilas: 'Sim' | 'Não';
   obs: string;
+  mes: string; // formato: "YYYY-MM"
+}
+
+export interface Coordinator {
+  id: number;
+  nome: string;
+  email: string;
+  telefone: string;
+  nucleo: string;
+  dataInicio: string;
+}
+
+export interface Discipline {
+  id: number;
+  nome: string;
+  professor: string;
+  cargaHoraria: number;
+  diasSemana: string;
+  horario: string;
 }
 
 export type PaymentType = 'dinheiro' | 'pixTransferencia' | 'cartaoAssinatura' | 'cartaoDebito';
