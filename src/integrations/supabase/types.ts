@@ -3322,33 +3322,39 @@ export type Database = {
       mensalidades: {
         Row: {
           aluno_id: string
+          apostilas: string | null
           created_at: string | null
           forma_pagamento: string | null
           id: string
           mes: string
           obs: string | null
+          qtd_apostilas: number | null
           situacao: string | null
           turma_id: string | null
           valor: number | null
         }
         Insert: {
           aluno_id: string
+          apostilas?: string | null
           created_at?: string | null
           forma_pagamento?: string | null
           id?: string
           mes?: string
           obs?: string | null
+          qtd_apostilas?: number | null
           situacao?: string | null
           turma_id?: string | null
           valor?: number | null
         }
         Update: {
           aluno_id?: string
+          apostilas?: string | null
           created_at?: string | null
           forma_pagamento?: string | null
           id?: string
           mes?: string
           obs?: string | null
+          qtd_apostilas?: number | null
           situacao?: string | null
           turma_id?: string | null
           valor?: number | null

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Aluno, Turma, Mensalidade, FormaPagamento } from '@/types/school';
 import { Button } from '@/components/ui/button';
@@ -6,65 +6,220 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CreditCard, CheckCircle2, Clock, DollarSign, TrendingUp,
-  Filter, RefreshCw, User, X, History, Calendar, ArrowLeft
+  Filter, RefreshCw, History, Calendar, ArrowLeft, BookOpen, AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const FORMAS: FormaPagamento[] = ['Dinheiro', 'Pix/Transferência', 'Cartão Crédito', 'Cartão Débito'];
 const MONTHS_LABELS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
+const mesLabel = (mes: string) => {
+  const [y, m] = mes.split('-');
+  return `${MONTHS_LABELS[parseInt(m) - 1]} ${y}`;
+};
+
 const getMonthOptions = () => {
   const opts: { value: string; label: string }[] = [];
-  // From January 2026 to December 2026, and add any past months from current year
-  const now = new Date();
-  const startYear = 2026;
-  const startMonth = 1;
-  const endYear = 2026;
-  const endMonth = 12;
-
-  // Also add past months from 3 months ago
-  const pastStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-
   const seen = new Set<string>();
+  const now = new Date();
 
-  // Past months (last 3)
-  for (let i = -3; i < 0; i++) {
+  // Last 6 months
+  for (let i = -6; i < 0; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    if (!seen.has(val)) {
-      seen.add(val);
-      opts.push({ value: val, label: `${MONTHS_LABELS[d.getMonth()]} ${d.getFullYear()}` });
-    }
+    if (!seen.has(val)) { seen.add(val); opts.push({ value: val, label: mesLabel(val) }); }
   }
 
-  // All months of 2026 (Jan to Dec)
-  for (let m = startMonth; m <= endMonth; m++) {
-    const val = `${startYear}-${String(m).padStart(2, '0')}`;
-    if (!seen.has(val)) {
-      seen.add(val);
-      opts.push({ value: val, label: `${MONTHS_LABELS[m - 1]} ${startYear}` });
-    }
+  // All months 2026 Jan–Dec
+  for (let m = 1; m <= 12; m++) {
+    const val = `2026-${String(m).padStart(2, '0')}`;
+    if (!seen.has(val)) { seen.add(val); opts.push({ value: val, label: mesLabel(val) }); }
   }
 
-  // Sort chronologically
   opts.sort((a, b) => a.value.localeCompare(b.value));
   return opts;
 };
 
-interface PaymentHistory {
-  id: string;
-  mes: string;
-  situacao: string;
-  formaPagamento: string;
-  valor: number;
-  obs: string;
+// ─── Row component with LOCAL state — saves only on blur ─────────────────────
+interface RowProps {
+  aluno: Aluno;
+  mensalidade: Mensalidade | undefined;
+  selectedMonth: string;
+  onSaved: () => void;
+  onOpenHistory: (aluno: Aluno) => void;
 }
 
+const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHistory }: RowProps) => {
+  const [situacao, setSituacao] = useState<'Pago' | 'Pendente'>(mensalidade?.situacao || 'Pendente');
+  const [forma, setForma] = useState<string>(mensalidade?.formaPagamento || 'sem-forma');
+  const [valor, setValor] = useState<string>(mensalidade?.valor ? String(mensalidade.valor) : '');
+  const [obs, setObs] = useState<string>(mensalidade?.obs || '');
+  const [apostilas, setApostilas] = useState<'Sim' | 'Não'>(mensalidade?.apostilas || 'Não');
+  const [qtd, setQtd] = useState<string>(mensalidade?.qtdApostilas ? String(mensalidade.qtdApostilas) : '');
+  const mensalidadeIdRef = useRef(mensalidade?.id);
+
+  // Sync when new month data loads (mensalidade changes)
+  useEffect(() => {
+    if (mensalidadeIdRef.current !== mensalidade?.id) {
+      mensalidadeIdRef.current = mensalidade?.id;
+      setSituacao(mensalidade?.situacao || 'Pendente');
+      setForma(mensalidade?.formaPagamento || 'sem-forma');
+      setValor(mensalidade?.valor ? String(mensalidade.valor) : '');
+      setObs(mensalidade?.obs || '');
+      setApostilas(mensalidade?.apostilas || 'Não');
+      setQtd(mensalidade?.qtdApostilas ? String(mensalidade.qtdApostilas) : '');
+    }
+  }, [mensalidade]);
+
+  const upsert = async (fields: Record<string, string | number | null>) => {
+    if (mensalidade?.id && !mensalidade.id.startsWith('temp-')) {
+      const { error } = await supabase.from('mensalidades').update(fields).eq('id', mensalidade.id);
+      if (error) { toast.error('Erro ao salvar: ' + error.message); return; }
+    } else {
+      const { error } = await supabase.from('mensalidades').insert({
+        aluno_id: aluno.id,
+        turma_id: aluno.turmaId,
+        mes: selectedMonth,
+        situacao: fields.situacao ?? situacao,
+        forma_pagamento: fields.forma_pagamento ?? (forma === 'sem-forma' ? '' : forma),
+        valor: fields.valor ?? (parseFloat(valor) || 0),
+        obs: fields.obs ?? obs,
+        apostilas: fields.apostilas ?? apostilas,
+        qtd_apostilas: fields.qtd_apostilas ?? (parseInt(qtd) || 0),
+      });
+      if (error) { toast.error('Erro ao salvar: ' + error.message); return; }
+      onSaved();
+    }
+  };
+
+  const handleSituacao = async (val: 'Pago' | 'Pendente') => {
+    setSituacao(val);
+    await upsert({ situacao: val });
+    if (!mensalidade?.id) onSaved();
+  };
+
+  const handleForma = async (val: string) => {
+    setForma(val);
+    await upsert({ forma_pagamento: val === 'sem-forma' ? '' : val });
+    if (!mensalidade?.id) onSaved();
+  };
+
+  const handleApostilas = async (val: 'Sim' | 'Não') => {
+    setApostilas(val);
+    if (val === 'Não') setQtd('');
+    await upsert({ apostilas: val, qtd_apostilas: val === 'Não' ? 0 : (parseInt(qtd) || 0) });
+    if (!mensalidade?.id) onSaved();
+  };
+
+  const isPago = situacao === 'Pago';
+
+  return (
+    <tr className="table-row">
+      <td className="table-td">
+        <button onClick={() => onOpenHistory(aluno)} className="flex items-center gap-2.5 group text-left">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold group-hover:ring-2 group-hover:ring-primary/30 transition-all ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+            {aluno.nome.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <p className="font-medium text-foreground text-sm group-hover:text-primary transition-colors">{aluno.nome}</p>
+            {aluno.matricula && <p className="text-xs text-muted-foreground">{aluno.matricula}</p>}
+          </div>
+          <History className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
+        </button>
+      </td>
+      <td className="table-td hidden md:table-cell text-sm text-muted-foreground">{aluno.turma?.nome || '—'}</td>
+
+      {/* Situação */}
+      <td className="table-td text-center">
+        <Select value={situacao} onValueChange={handleSituacao}>
+          <SelectTrigger className={`h-8 text-xs font-semibold border-0 rounded-full px-3 w-28 mx-auto ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Pago">Pago</SelectItem>
+            <SelectItem value="Pendente">Pendente</SelectItem>
+          </SelectContent>
+        </Select>
+      </td>
+
+      {/* Forma pagamento */}
+      <td className="table-td hidden sm:table-cell">
+        <Select value={forma} onValueChange={handleForma}>
+          <SelectTrigger className="h-8 text-xs form-input w-40"><SelectValue placeholder="Forma" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sem-forma">— Nenhuma —</SelectItem>
+            {FORMAS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </td>
+
+      {/* Valor — local state, salva no blur */}
+      <td className="table-td hidden sm:table-cell">
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          className="h-8 text-xs text-right form-input w-24 ml-auto"
+          value={valor}
+          placeholder="0,00"
+          onChange={e => setValor(e.target.value)}
+          onBlur={() => upsert({ valor: parseFloat(valor) || 0 })}
+        />
+      </td>
+
+      {/* Apostilas */}
+      <td className="table-td hidden lg:table-cell">
+        <Select value={apostilas} onValueChange={handleApostilas}>
+          <SelectTrigger className="h-8 text-xs form-input w-20"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Não">Não</SelectItem>
+            <SelectItem value="Sim">Sim</SelectItem>
+          </SelectContent>
+        </Select>
+      </td>
+
+      {/* Qtd apostilas — local state, salva no blur */}
+      <td className="table-td hidden lg:table-cell">
+        <Input
+          type="number"
+          min="0"
+          step="1"
+          className="h-8 text-xs text-center form-input w-16"
+          value={qtd}
+          placeholder="0"
+          disabled={apostilas === 'Não'}
+          onChange={e => setQtd(e.target.value)}
+          onBlur={() => upsert({ qtd_apostilas: parseInt(qtd) || 0, apostilas })}
+        />
+      </td>
+
+      {/* Obs — local state, salva no blur */}
+      <td className="table-td hidden xl:table-cell">
+        <Input
+          className="h-8 text-xs form-input"
+          placeholder="Observação..."
+          value={obs}
+          onChange={e => setObs(e.target.value)}
+          onBlur={() => upsert({ obs })}
+        />
+      </td>
+    </tr>
+  );
+};
+
+// ─── History types ────────────────────────────────────────────────────────────
+interface PaymentHistory {
+  id: string; mes: string; situacao: string; formaPagamento: string;
+  valor: number; obs: string; apostilas: string; qtdApostilas: number;
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 const MensalidadeTab = () => {
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [mensalidades, setMensalidades] = useState<Mensalidade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -72,45 +227,45 @@ const MensalidadeTab = () => {
   const [selectedTurma, setSelectedTurma] = useState('all');
   const monthOptions = getMonthOptions();
 
-  // Individual student modal
   const [selectedAluno, setSelectedAluno] = useState<Aluno | null>(null);
   const [alunoHistory, setAlunoHistory] = useState<PaymentHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Load base data (alunos + turmas) — once, not on month change
+  // Load alunos + turmas ONCE — never changes with month
   const loadBase = useCallback(async () => {
     const [aRes, tRes] = await Promise.all([
       supabase.from('alunos').select('*, classes(id, nome, turno)').eq('ativo', true).order('nome'),
       supabase.from('classes').select('*').order('nome'),
     ]);
+    if (aRes.error) { setLoadError(aRes.error.message); return; }
     if (tRes.data) setTurmas(tRes.data.map(r => ({
-      id: r.id, nome: r.nome, turno: r.turno, disciplina: r.disciplina ?? '',
-      professor: r.professor ?? '', diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '',
-      createdAt: r.created_at,
+      id: r.id, nome: r.nome, turno: r.turno as 'Manhã' | 'Tarde' | 'Noite',
+      disciplina: r.disciplina ?? '', professor: r.professor ?? '',
+      diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '', createdAt: r.created_at,
     })));
     if (aRes.data) {
-      type AlunoRow = {
-        id: string; nome: string; matricula: string | null; telefone: string | null;
-        email: string | null; turma_id: string | null; ativo: boolean; created_at: string;
-        classes: { id: string; nome: string; turno: string } | null;
-      };
-      setAlunos((aRes.data as AlunoRow[]).map(r => ({
+      type AR = { id: string; nome: string; matricula: string | null; telefone: string | null; email: string | null; turma_id: string | null; ativo: boolean; created_at: string; classes: { id: string; nome: string; turno: string } | null };
+      setAlunos((aRes.data as AR[]).map(r => ({
         id: r.id, nome: r.nome, matricula: r.matricula ?? '', telefone: r.telefone ?? '',
         email: r.email ?? '', turmaId: r.turma_id, ativo: r.ativo, createdAt: r.created_at,
-        turma: r.classes ? { id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno, disciplina: '', professor: '', diasSemana: '', nucleo: '', createdAt: '' } : undefined,
+        turma: r.classes ? { id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno as 'Manhã' | 'Tarde' | 'Noite', disciplina: '', professor: '', diasSemana: '', nucleo: '', createdAt: '' } : undefined,
       })));
     }
   }, []);
 
-  // Load mensalidades for selected month only
+  // Load ONLY mensalidades for selected month
   const loadMensalidades = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('mensalidades').select('*').eq('mes', selectedMonth);
+    setLoadError('');
+    const { data, error } = await supabase.from('mensalidades').select('*').eq('mes', selectedMonth);
+    if (error) { setLoadError(error.message); setLoading(false); return; }
     if (data) setMensalidades(data.map(r => ({
       id: r.id, alunoId: r.aluno_id, turmaId: r.turma_id, mes: r.mes,
-      situacao: r.situacao as 'Pago' | 'Pendente',
+      situacao: (r.situacao || 'Pendente') as 'Pago' | 'Pendente',
       formaPagamento: (r.forma_pagamento ?? '') as FormaPagamento,
       valor: Number(r.valor) || 0, obs: r.obs ?? '',
+      apostilas: (r.apostilas || 'Não') as 'Sim' | 'Não',
+      qtdApostilas: Number(r.qtd_apostilas) || 0,
     })));
     setLoading(false);
   }, [selectedMonth]);
@@ -118,195 +273,104 @@ const MensalidadeTab = () => {
   useEffect(() => { loadBase(); }, [loadBase]);
   useEffect(() => { loadMensalidades(); }, [loadMensalidades]);
 
-  // Filter alunos by selected turma
   const filteredAlunos = selectedTurma === 'all' ? alunos : alunos.filter(a => a.turmaId === selectedTurma);
-
   const getMensalidade = (alunoId: string) => mensalidades.find(m => m.alunoId === alunoId);
 
-  const updateMensalidade = async (aluno: Aluno, field: string, value: string | number) => {
-    const existing = getMensalidade(aluno.id);
+  // Summary stats
+  const pagos = filteredAlunos.filter(a => getMensalidade(a.id)?.situacao === 'Pago');
+  const totalArrecadado = pagos.reduce((s, a) => s + (getMensalidade(a.id)?.valor || 0), 0);
+  const totalApostilas = mensalidades.reduce((s, m) => s + (m.qtdApostilas || 0), 0);
+  const byForma: Record<string, number> = {};
+  pagos.forEach(a => { const m = getMensalidade(a.id); if (m?.formaPagamento) byForma[m.formaPagamento] = (byForma[m.formaPagamento] || 0) + m.valor; });
 
-    if (existing) {
-      const dbField = field === 'formaPagamento' ? 'forma_pagamento' : field;
-      await supabase.from('mensalidades').update({ [dbField]: value }).eq('id', existing.id);
-    } else {
-      await supabase.from('mensalidades').insert({
-        aluno_id: aluno.id,
-        turma_id: aluno.turmaId,
-        mes: selectedMonth,
-        situacao: field === 'situacao' ? value : 'Pendente',
-        forma_pagamento: field === 'formaPagamento' ? value : '',
-        valor: field === 'valor' ? value : 0,
-        obs: field === 'obs' ? value : '',
-      });
-    }
-
-    // Update local state immediately
-    setMensalidades(prev => {
-      const dbField = field === 'formaPagamento' ? 'formaPagamento' : field;
-      const idx = prev.findIndex(m => m.alunoId === aluno.id);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], [dbField]: value };
-        return updated;
-      } else {
-        return [...prev, {
-          id: 'temp-' + aluno.id, alunoId: aluno.id, turmaId: aluno.turmaId,
-          mes: selectedMonth,
-          situacao: field === 'situacao' ? value as 'Pago' | 'Pendente' : 'Pendente',
-          formaPagamento: field === 'formaPagamento' ? value as FormaPagamento : '',
-          valor: field === 'valor' ? Number(value) : 0,
-          obs: field === 'obs' ? String(value) : '',
-        }];
-      }
-    });
-  };
-
-  // Load individual student payment history
-  const openAlunoHistory = async (aluno: Aluno) => {
+  const openHistory = async (aluno: Aluno) => {
     setSelectedAluno(aluno);
     setLoadingHistory(true);
-    const { data } = await supabase
-      .from('mensalidades')
-      .select('*')
-      .eq('aluno_id', aluno.id)
-      .order('mes', { ascending: true });
-    if (data) {
-      setAlunoHistory(data.map(r => ({
-        id: r.id,
-        mes: r.mes,
-        situacao: r.situacao,
-        formaPagamento: r.forma_pagamento ?? '',
-        valor: Number(r.valor) || 0,
-        obs: r.obs ?? '',
-      })));
-    }
+    const { data } = await supabase.from('mensalidades').select('*').eq('aluno_id', aluno.id).order('mes');
+    if (data) setAlunoHistory(data.map(r => ({
+      id: r.id, mes: r.mes, situacao: r.situacao,
+      formaPagamento: r.forma_pagamento ?? '', valor: Number(r.valor) || 0,
+      obs: r.obs ?? '', apostilas: r.apostilas ?? 'Não', qtdApostilas: Number(r.qtd_apostilas) || 0,
+    })));
     setLoadingHistory(false);
   };
 
-  const mesLabel = (mes: string) => {
-    const [y, m] = mes.split('-');
-    return `${MONTHS_LABELS[parseInt(m) - 1]} ${y}`;
-  };
-
-  // Summary
-  const pagos = filteredAlunos.filter(a => getMensalidade(a.id)?.situacao === 'Pago');
-  const pendentes = filteredAlunos.filter(a => getMensalidade(a.id)?.situacao !== 'Pago');
-  const totalArrecadado = pagos.reduce((sum, a) => sum + (getMensalidade(a.id)?.valor || 0), 0);
-  const byForma: Record<string, number> = {};
-  pagos.forEach(a => {
-    const m = getMensalidade(a.id);
-    if (m?.formaPagamento) byForma[m.formaPagamento] = (byForma[m.formaPagamento] || 0) + m.valor;
-  });
-
-  const generateRelatorio = async (tipo: 'geral' | 'pagos' | 'pendentes') => {
+  const generatePDF = async (tipo: 'geral' | 'pagos' | 'pendentes') => {
     const { default: jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const mesLab = mesLabel(selectedMonth);
-    const turmaLabel = selectedTurma === 'all' ? 'Todas as Turmas' : (turmas.find(t => t.id === selectedTurma)?.nome || '');
-    const lista = tipo === 'geral' ? filteredAlunos : tipo === 'pagos' ? pagos : pendentes;
+    const lista = tipo === 'geral' ? filteredAlunos : tipo === 'pagos' ? pagos : filteredAlunos.filter(a => getMensalidade(a.id)?.situacao !== 'Pago');
+    const turmaLab = selectedTurma === 'all' ? 'Todas as Turmas' : (turmas.find(t => t.id === selectedTurma)?.nome || '');
 
-    doc.setFillColor(30, 64, 175);
-    doc.rect(0, 0, 210, 35, 'F');
-    try { doc.addImage('/logo-esteadeb.png', 'PNG', 10, 5, 40, 14, undefined, 'FAST'); } catch (_e) { /* no logo */ }
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14); doc.setFont('helvetica', 'bold');
-    doc.text('RELATÓRIO DE MENSALIDADES', 105, 15, { align: 'center' });
-    doc.setFontSize(9); doc.setFont('helvetica', 'normal');
-    doc.text(`${mesLab} — ${turmaLabel}`, 105, 22, { align: 'center' });
-    doc.text(`Emitido em ${new Date().toLocaleDateString('pt-BR')}`, 105, 28, { align: 'center' });
+    doc.setFillColor(30, 64, 175); doc.rect(0, 0, 297, 35, 'F');
+    try { doc.addImage('/logo-esteadeb.png', 'PNG', 10, 5, 55, 16, undefined, 'FAST'); } catch (_e) { /* skip */ }
+    doc.setTextColor(255,255,255); doc.setFontSize(15); doc.setFont('helvetica','bold');
+    doc.text('RELATÓRIO DE MENSALIDADES', 148, 16, { align: 'center' });
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(`${mesLab} — ${turmaLab} — ${new Date().toLocaleDateString('pt-BR')}`, 148, 24, { align: 'center' });
+    doc.text(`Pagos: ${pagos.length} | Pendentes: ${filteredAlunos.length - pagos.length} | Total: R$ ${totalArrecadado.toFixed(2).replace('.', ',')} | Apostilas: ${totalApostilas}`, 148, 30, { align: 'center' });
 
-    doc.setTextColor(0, 0, 0);
-    doc.setFillColor(248, 250, 252);
-    doc.rect(10, 40, 190, 24, 'F');
-    doc.setDrawColor(226, 232, 240);
-    doc.rect(10, 40, 190, 24, 'S');
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-    doc.text(`Total alunos: ${filteredAlunos.length}`, 20, 50);
-    doc.text(`Pagos: ${pagos.length}`, 80, 50);
-    doc.text(`Pendentes: ${pendentes.length}`, 130, 50);
-    doc.text(`Arrecadado: R$ ${totalArrecadado.toFixed(2).replace('.', ',')}`, 20, 58);
+    let y = 43;
+    doc.setTextColor(0,0,0); doc.setFillColor(30,64,175); doc.rect(10, y, 277, 8, 'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
+    doc.text('Nº', 12, y+5.5); doc.text('Nome', 22, y+5.5); doc.text('Turma', 90, y+5.5);
+    doc.text('Forma Pgto', 140, y+5.5); doc.text('Valor', 185, y+5.5);
+    doc.text('Apostilas', 205, y+5.5); doc.text('Qtd', 228, y+5.5);
+    doc.text('Situação', 275, y+5.5, { align: 'right' }); y += 8;
 
-    let y = 72;
-    doc.setFillColor(30, 64, 175);
-    doc.rect(10, y, 190, 8, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-    doc.text('Nº', 13, y + 5.5);
-    doc.text('Nome do Aluno', 25, y + 5.5);
-    doc.text('Turma', 105, y + 5.5);
-    doc.text('Forma Pgto.', 140, y + 5.5);
-    doc.text('Valor', 170, y + 5.5);
-    doc.text('Situação', 198, y + 5.5, { align: 'right' });
-    y += 8;
-
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(0,0,0);
     lista.forEach((a, i) => {
-      if (y > 270) { doc.addPage(); y = 15; }
-      doc.setFillColor(i % 2 === 0 ? 255 : 248);
-      doc.rect(10, y, 190, 7.5, 'F');
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      if (y > 195) { doc.addPage(); y = 15; }
+      doc.setFillColor(i % 2 === 0 ? 255 : 249); doc.rect(10, y, 277, 7.5, 'F');
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
       const m = getMensalidade(a.id);
-      doc.text(String(i + 1), 13, y + 5);
-      doc.text(a.nome.substring(0, 35), 25, y + 5);
-      doc.text((a.turma?.nome || '—').substring(0, 20), 105, y + 5);
-      doc.text((m?.formaPagamento || '—').substring(0, 18), 140, y + 5);
-      doc.text(m?.valor ? `R$ ${m.valor.toFixed(2).replace('.', ',')}` : '—', 170, y + 5);
+      doc.text(String(i+1), 12, y+5); doc.text(a.nome.substring(0,35), 22, y+5);
+      doc.text((a.turma?.nome||'—').substring(0,25), 90, y+5);
+      doc.text((m?.formaPagamento||'—').substring(0,18), 140, y+5);
+      doc.text(m?.valor ? `R$ ${m.valor.toFixed(2).replace('.',',')}` : '—', 185, y+5);
+      doc.text(m?.apostilas||'Não', 205, y+5);
+      doc.text(m?.qtdApostilas ? String(m.qtdApostilas) : '—', 228, y+5);
       const sit = m?.situacao || 'Pendente';
-      doc.setTextColor(sit === 'Pago' ? 21 : 185, sit === 'Pago' ? 128 : 28, sit === 'Pago' ? 61 : 28);
-      doc.setFont('helvetica', 'bold');
-      doc.text(sit, 198, y + 5, { align: 'right' });
-      doc.setTextColor(0, 0, 0);
-      y += 7.5;
+      doc.setTextColor(sit==='Pago'?21:185, sit==='Pago'?128:28, sit==='Pago'?61:28);
+      doc.setFont('helvetica','bold'); doc.text(sit, 275, y+5, { align: 'right' });
+      doc.setTextColor(0,0,0); y += 7.5;
     });
-
-    doc.save(`Mensalidade_${tipo}_${mesLab.replace(' ', '_')}.pdf`);
+    doc.save(`Mensalidade_${tipo}_${mesLab.replace(' ','_')}.pdf`);
     toast.success('Relatório gerado!');
   };
 
-  // ─── Individual student modal ───────────────────────────────
+  // ─── Individual history view ──────────────────────────────────────────────
   if (selectedAluno) {
     const totalPago = alunoHistory.filter(h => h.situacao === 'Pago').reduce((s, h) => s + h.valor, 0);
-    const mesesPagos = alunoHistory.filter(h => h.situacao === 'Pago');
+    const qtdApostilasTot = alunoHistory.reduce((s, h) => s + h.qtdApostilas, 0);
     return (
       <div className="space-y-5">
-        <Button variant="outline" onClick={() => setSelectedAluno(null)} className="gap-2 btn-outline">
-          <ArrowLeft className="w-4 h-4" />Voltar à Mensalidade
+        <Button variant="outline" onClick={() => setSelectedAluno(null)} className="gap-2">
+          <ArrowLeft className="w-4 h-4" />Voltar
         </Button>
-
         <div className="content-card p-6">
-          <div className="flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-5">
             <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
               <span className="text-lg font-bold text-primary">{selectedAluno.nome.charAt(0)}</span>
             </div>
             <div>
               <h2 className="text-xl font-bold text-foreground">{selectedAluno.nome}</h2>
               {selectedAluno.matricula && <p className="text-sm text-muted-foreground">Matrícula: {selectedAluno.matricula}</p>}
-              {selectedAluno.telefone && <p className="text-sm text-muted-foreground">{selectedAluno.telefone}</p>}
             </div>
           </div>
-
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-            <div className="content-card p-4 bg-emerald-50 border-0">
-              <p className="text-xs text-muted-foreground">Total Pago</p>
-              <p className="text-xl font-bold text-emerald-600">R$ {totalPago.toFixed(2).replace('.', ',')}</p>
-            </div>
-            <div className="content-card p-4 bg-primary/5 border-0">
-              <p className="text-xs text-muted-foreground">Meses Pagos</p>
-              <p className="text-xl font-bold text-primary">{mesesPagos.length}</p>
-            </div>
-            <div className="content-card p-4 bg-muted/50 border-0">
-              <p className="text-xs text-muted-foreground">Total Registros</p>
-              <p className="text-xl font-bold text-foreground">{alunoHistory.length}</p>
-            </div>
-            <div className="content-card p-4 bg-muted/50 border-0">
-              <p className="text-xs text-muted-foreground">Pendentes</p>
-              <p className="text-xl font-bold text-red-600">{alunoHistory.filter(h => h.situacao === 'Pendente').length}</p>
-            </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            {[
+              { l: 'Total Pago', v: `R$ ${totalPago.toFixed(2).replace('.',',')}`, c: 'text-emerald-600', bg: 'bg-emerald-50' },
+              { l: 'Meses Pagos', v: alunoHistory.filter(h=>h.situacao==='Pago').length, c: 'text-primary', bg: 'bg-primary/5' },
+              { l: 'Pendentes', v: alunoHistory.filter(h=>h.situacao==='Pendente').length, c: 'text-red-600', bg: 'bg-red-50' },
+              { l: 'Apostilas Total', v: qtdApostilasTot, c: 'text-amber-600', bg: 'bg-amber-50' },
+            ].map(s => (
+              <div key={s.l} className={`content-card p-4 ${s.bg} border-0`}>
+                <p className="text-xs text-muted-foreground">{s.l}</p>
+                <p className={`text-xl font-bold mt-0.5 ${s.c}`}>{s.v}</p>
+              </div>
+            ))}
           </div>
-
-          {/* History table */}
           {loadingHistory ? (
             <div className="flex justify-center py-8"><div className="loading-spinner" /></div>
           ) : alunoHistory.length === 0 ? (
@@ -315,76 +379,77 @@ const MensalidadeTab = () => {
               <p>Nenhum registro de pagamento</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
               <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                <History className="w-4 h-4 text-primary" />Histórico de Pagamentos
+                <History className="w-4 h-4 text-primary" />Histórico por Mês
               </h3>
-              <table className="w-full">
-                <thead>
-                  <tr className="table-head">
-                    <th className="table-th text-left">Mês</th>
-                    <th className="table-th text-left">Situação</th>
-                    <th className="table-th text-left hidden sm:table-cell">Forma de Pagamento</th>
-                    <th className="table-th text-right">Valor</th>
-                    <th className="table-th text-left hidden md:table-cell">Obs</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {alunoHistory.map((h, i) => (
-                    <tr key={h.id} className={`table-row ${h.situacao === 'Pago' ? 'bg-emerald-50/40' : ''}`}>
-                      <td className="table-td">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                          <span className="font-medium text-sm text-foreground">{mesLabel(h.mes)}</span>
-                        </div>
-                      </td>
-                      <td className="table-td">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${h.situacao === 'Pago' ? 'badge-pago' : 'badge-pendente'}`}>
-                          {h.situacao === 'Pago' ? <CheckCircle2 className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
-                          {h.situacao}
-                        </span>
-                      </td>
-                      <td className="table-td hidden sm:table-cell text-sm text-muted-foreground">{h.formaPagamento || '—'}</td>
-                      <td className="table-td text-right">
-                        <span className={`font-semibold text-sm ${h.situacao === 'Pago' ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-                          {h.valor > 0 ? `R$ ${h.valor.toFixed(2).replace('.', ',')}` : '—'}
-                        </span>
-                      </td>
-                      <td className="table-td hidden md:table-cell text-xs text-muted-foreground">{h.obs || '—'}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="table-head">
+                      <th className="table-th text-left">Mês</th>
+                      <th className="table-th text-left">Situação</th>
+                      <th className="table-th text-left hidden sm:table-cell">Forma Pgto</th>
+                      <th className="table-th text-right">Valor</th>
+                      <th className="table-th text-center hidden md:table-cell">Apostilas</th>
+                      <th className="table-th text-center hidden md:table-cell">Qtd</th>
+                      <th className="table-th text-left hidden lg:table-cell">Obs</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-muted/30">
-                    <td colSpan={2} className="table-td font-bold text-sm text-foreground">Total Pago</td>
-                    <td className="table-td hidden sm:table-cell" />
-                    <td className="table-td text-right font-bold text-emerald-600 text-sm">
-                      R$ {totalPago.toFixed(2).replace('.', ',')}
-                    </td>
-                    <td className="table-td hidden md:table-cell" />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {alunoHistory.map(h => (
+                      <tr key={h.id} className={`table-row ${h.situacao==='Pago' ? 'bg-emerald-50/40' : ''}`}>
+                        <td className="table-td"><span className="font-medium text-sm text-foreground">{mesLabel(h.mes)}</span></td>
+                        <td className="table-td">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${h.situacao==='Pago' ? 'badge-pago' : 'badge-pendente'}`}>
+                            {h.situacao==='Pago' ? <CheckCircle2 className="w-3 h-3 mr-1"/> : <Clock className="w-3 h-3 mr-1"/>}{h.situacao}
+                          </span>
+                        </td>
+                        <td className="table-td hidden sm:table-cell text-sm text-muted-foreground">{h.formaPagamento||'—'}</td>
+                        <td className="table-td text-right">
+                          <span className={`font-semibold text-sm ${h.situacao==='Pago' ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+                            {h.valor > 0 ? `R$ ${h.valor.toFixed(2).replace('.',',')}` : '—'}
+                          </span>
+                        </td>
+                        <td className="table-td text-center hidden md:table-cell">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${h.apostilas==='Sim' ? 'bg-amber-100 text-amber-700' : 'text-muted-foreground'}`}>
+                            <BookOpen className="w-3 h-3"/>{h.apostilas}
+                          </span>
+                        </td>
+                        <td className="table-td text-center hidden md:table-cell text-sm text-muted-foreground">{h.qtdApostilas||'—'}</td>
+                        <td className="table-td hidden lg:table-cell text-xs text-muted-foreground">{h.obs||'—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-muted/30">
+                      <td colSpan={2} className="table-td font-bold text-sm text-foreground">Total</td>
+                      <td className="table-td hidden sm:table-cell"/>
+                      <td className="table-td text-right font-bold text-emerald-600 text-sm">R$ {totalPago.toFixed(2).replace('.',',')}</td>
+                      <td className="table-td hidden md:table-cell"/>
+                      <td className="table-td text-center hidden md:table-cell font-bold text-amber-600 text-sm">{qtdApostilasTot}</td>
+                      <td className="table-td hidden lg:table-cell"/>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>
     );
   }
 
-  // ─── Main view ─────────────────────────────────────────────
+  // ─── Main table ───────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Filters */}
       <div className="content-card p-4">
         <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Filtros:</span>
-          </div>
+          <Filter className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <Select value={selectedMonth} onValueChange={setSelectedMonth}>
             <SelectTrigger className="form-input w-[180px]"><SelectValue /></SelectTrigger>
-            <SelectContent className="max-h-64">
+            <SelectContent className="max-h-72">
               {monthOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -399,34 +464,52 @@ const MensalidadeTab = () => {
             <RefreshCw className="w-3.5 h-3.5" />Atualizar
           </Button>
           <div className="flex gap-2 ml-auto flex-wrap">
-            <Button variant="outline" size="sm" onClick={() => generateRelatorio('geral')} className="gap-1.5 h-9 text-xs">
+            <Button variant="outline" size="sm" onClick={() => generatePDF('geral')} className="gap-1.5 h-9 text-xs">
               <CreditCard className="w-3.5 h-3.5" />PDF Geral
             </Button>
-            <Button variant="outline" size="sm" onClick={() => generateRelatorio('pagos')} className="gap-1.5 h-9 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50">PDF Pagos</Button>
-            <Button variant="outline" size="sm" onClick={() => generateRelatorio('pendentes')} className="gap-1.5 h-9 text-xs text-red-700 border-red-200 hover:bg-red-50">PDF Pendentes</Button>
+            <Button variant="outline" size="sm" onClick={() => generatePDF('pagos')} className="gap-1.5 h-9 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+              PDF Pagos
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => generatePDF('pendentes')} className="gap-1.5 h-9 text-xs text-red-700 border-red-200 hover:bg-red-50">
+              PDF Pendentes
+            </Button>
           </div>
         </div>
       </div>
 
+      {/* Error */}
+      {loadError && (
+        <div className="flex items-center gap-2 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />{loadError}
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Total Alunos', value: filteredAlunos.length, icon: CreditCard, color: 'text-primary', bg: 'bg-primary/5' },
-          { label: 'Pagos', value: pagos.length, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Pendentes', value: pendentes.length, icon: Clock, color: 'text-red-600', bg: 'bg-red-50' },
-          { label: 'Arrecadado', value: `R$ ${totalArrecadado.toFixed(2).replace('.', ',')}`, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { l: 'Total Alunos', v: filteredAlunos.length, icon: CreditCard, c: 'text-primary', bg: 'bg-primary/5' },
+          { l: 'Pagos', v: pagos.length, icon: CheckCircle2, c: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { l: 'Pendentes', v: filteredAlunos.length - pagos.length, icon: Clock, c: 'text-red-600', bg: 'bg-red-50' },
+          { l: 'Arrecadado', v: `R$ ${totalArrecadado.toFixed(2).replace('.',',')}`, icon: TrendingUp, c: 'text-blue-600', bg: 'bg-blue-50' },
         ].map(s => (
-          <div key={s.label} className={`content-card p-4 ${s.bg} border-0`}>
+          <div key={s.l} className={`content-card p-4 ${s.bg} border-0`}>
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className={`text-xl font-bold mt-0.5 ${s.color}`}>{s.value}</p>
-              </div>
-              <s.icon className={`w-6 h-6 opacity-40 ${s.color}`} />
+              <div><p className="text-xs text-muted-foreground">{s.l}</p><p className={`text-xl font-bold mt-0.5 ${s.c}`}>{s.v}</p></div>
+              <s.icon className={`w-6 h-6 opacity-40 ${s.c}`} />
             </div>
           </div>
         ))}
       </div>
+
+      {/* Apostilas summary */}
+      {totalApostilas > 0 && (
+        <div className="content-card p-3 flex items-center gap-3 bg-amber-50 border-amber-200">
+          <BookOpen className="w-5 h-5 text-amber-600 flex-shrink-0" />
+          <p className="text-sm text-amber-800">
+            <span className="font-bold">{totalApostilas}</span> apostila{totalApostilas !== 1 ? 's' : ''} registrada{totalApostilas !== 1 ? 's' : ''} em {mesLabel(selectedMonth)}
+          </p>
+        </div>
+      )}
 
       {/* Formas de pagamento */}
       {Object.keys(byForma).length > 0 && (
@@ -438,7 +521,7 @@ const MensalidadeTab = () => {
             {Object.entries(byForma).map(([forma, total]) => (
               <div key={forma} className="px-3 py-2 rounded-lg bg-muted/60 border border-border text-xs">
                 <p className="font-medium text-foreground">{forma}</p>
-                <p className="text-primary font-bold">R$ {total.toFixed(2).replace('.', ',')}</p>
+                <p className="text-primary font-bold">R$ {total.toFixed(2).replace('.',',')}</p>
               </div>
             ))}
           </div>
@@ -451,107 +534,60 @@ const MensalidadeTab = () => {
       ) : filteredAlunos.length === 0 ? (
         <div className="empty-state">
           <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">Nenhum aluno encontrado</p>
+          <p className="font-medium">Nenhum aluno ativo encontrado</p>
           <p className="text-sm mt-1">Cadastre alunos na aba "Cadastro de Alunos"</p>
         </div>
       ) : (
         <div className="content-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-muted/20 flex items-center justify-between">
             <p className="text-sm font-semibold text-foreground">{mesLabel(selectedMonth)}</p>
-            <p className="text-xs text-muted-foreground">{filteredAlunos.length} alunos — clique no nome para ver histórico</p>
+            <p className="text-xs text-muted-foreground">
+              {filteredAlunos.length} alunos — <span className="text-primary cursor-pointer hover:underline" onClick={() => {}}>clique no nome para ver histórico completo</span>
+            </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="table-head">
-                  <th className="table-th text-left">Aluno</th>
+                  <th className="table-th text-left">
+                    <button className="text-left w-full text-xs opacity-60 hover:opacity-100 transition-opacity" title="Clique no nome do aluno para ver histórico">
+                      Aluno <History className="inline w-3 h-3 ml-1" />
+                    </button>
+                  </th>
                   <th className="table-th text-left hidden md:table-cell">Turma</th>
                   <th className="table-th text-center">Situação</th>
-                  <th className="table-th text-left hidden sm:table-cell">Forma de Pagamento</th>
-                  <th className="table-th text-right hidden sm:table-cell">Valor</th>
+                  <th className="table-th text-left hidden sm:table-cell">Forma Pgto</th>
+                  <th className="table-th text-right hidden sm:table-cell">Valor R$</th>
+                  <th className="table-th text-center hidden lg:table-cell">Apostilas</th>
+                  <th className="table-th text-center hidden lg:table-cell">Qtd</th>
                   <th className="table-th text-left hidden xl:table-cell">Obs</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredAlunos.map(a => {
-                  const m = getMensalidade(a.id);
-                  const isPago = m?.situacao === 'Pago';
-                  return (
-                    <tr key={a.id} className="table-row">
-                      <td className="table-td">
-                        <button
-                          onClick={() => openAlunoHistory(a)}
-                          className="flex items-center gap-2.5 group text-left w-full"
-                        >
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold group-hover:ring-2 group-hover:ring-primary/30 transition-all ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                            {a.nome.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground text-sm group-hover:text-primary transition-colors">{a.nome}</p>
-                            {a.telefone && <p className="text-xs text-muted-foreground">{a.telefone}</p>}
-                          </div>
-                          <History className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1" />
-                        </button>
-                      </td>
-                      <td className="table-td hidden md:table-cell text-sm text-muted-foreground">{a.turma?.nome || '—'}</td>
-                      <td className="table-td text-center">
-                        <Select
-                          value={m?.situacao || 'Pendente'}
-                          onValueChange={v => updateMensalidade(a, 'situacao', v)}
-                        >
-                          <SelectTrigger className={`h-8 text-xs font-semibold border-0 rounded-full px-3 w-28 mx-auto ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Pago">Pago</SelectItem>
-                            <SelectItem value="Pendente">Pendente</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="table-td hidden sm:table-cell">
-                        <Select
-                          value={m?.formaPagamento || 'sem-forma'}
-                          onValueChange={v => updateMensalidade(a, 'formaPagamento', v === 'sem-forma' ? '' : v)}
-                        >
-                          <SelectTrigger className="h-8 text-xs form-input w-40">
-                            <SelectValue placeholder="Selecionar" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="sem-forma">— Nenhuma —</SelectItem>
-                            {FORMAS.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </td>
-                      <td className="table-td text-right hidden sm:table-cell">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="h-8 text-xs text-right form-input w-24 ml-auto"
-                          value={m?.valor || ''}
-                          placeholder="0,00"
-                          onChange={e => updateMensalidade(a, 'valor', parseFloat(e.target.value) || 0)}
-                        />
-                      </td>
-                      <td className="table-td hidden xl:table-cell">
-                        <Input
-                          className="h-8 text-xs form-input"
-                          placeholder="Observação..."
-                          value={m?.obs || ''}
-                          onChange={e => updateMensalidade(a, 'obs', e.target.value)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filteredAlunos.map(a => (
+                  <MensalidadeRow
+                    key={`${a.id}-${selectedMonth}`}
+                    aluno={a}
+                    mensalidade={getMensalidade(a.id)}
+                    selectedMonth={selectedMonth}
+                    onSaved={loadMensalidades}
+                    onOpenHistory={openHistory}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-border bg-muted/20 text-xs text-muted-foreground">
-            {pagos.length}/{filteredAlunos.length} pagos — R$ {totalArrecadado.toFixed(2).replace('.', ',')} arrecadados
+          <div className="px-4 py-3 border-t border-border bg-muted/20 text-xs text-muted-foreground flex items-center justify-between flex-wrap gap-2">
+            <span>{pagos.length}/{filteredAlunos.length} pagos — R$ {totalArrecadado.toFixed(2).replace('.',',')} arrecadados</span>
+            {totalApostilas > 0 && <span className="text-amber-600 font-medium flex items-center gap-1"><BookOpen className="w-3 h-3"/>{totalApostilas} apostila{totalApostilas!==1?'s':''}</span>}
           </div>
         </div>
       )}
+
+      {/* Note about clicking name for history */}
+      <p className="text-xs text-muted-foreground text-center">
+        Clique no nome de um aluno para ver o histórico completo de pagamentos de todos os meses
+      </p>
     </div>
   );
 };

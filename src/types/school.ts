@@ -35,6 +35,8 @@ export interface Mensalidade {
   formaPagamento: FormaPagamento;
   valor: number;
   obs: string;
+  apostilas: 'Sim' | 'Não';
+  qtdApostilas: number;
 }
 
 export interface AttendanceSession {

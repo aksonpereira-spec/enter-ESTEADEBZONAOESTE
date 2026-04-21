@@ -1,0 +1,3 @@
+
+ALTER TABLE public.mensalidades ADD COLUMN IF NOT EXISTS apostilas TEXT DEFAULT 'Não';
+ALTER TABLE public.mensalidades ADD COLUMN IF NOT EXISTS qtd_apostilas INTEGER DEFAULT 0;
