@@ -4,7 +4,7 @@ import { Aluno, Turma } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit2, Search, Users, Phone, Mail, Check, X, UserCheck, UserX } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 
 const emptyForm = { nome: '', matricula: '', telefone: '', email: '', turmaId: '', ativo: true };
@@ -27,11 +27,18 @@ const AlunosTab = () => {
       supabase.from('classes').select('*').order('nome'),
     ]);
     if (tRes.data) setTurmas(tRes.data.map(r => ({ id: r.id, nome: r.nome, turno: r.turno, disciplina: r.disciplina ?? '', professor: r.professor ?? '', diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '', createdAt: r.created_at })));
-    if (aRes.data) setAlunos(aRes.data.map((r: Record<string, unknown>) => ({
+    if (aRes.data) {
+      type AlunoRow = {
+        id: string; nome: string; matricula: string | null; telefone: string | null;
+        email: string | null; turma_id: string | null; ativo: boolean; created_at: string;
+        classes: { id: string; nome: string; turno: string; disciplina: string | null; professor: string | null; dias_semana: string | null; nucleo: string | null; created_at: string } | null;
+      };
+      setAlunos((aRes.data as AlunoRow[]).map(r => ({
       id: r.id, nome: r.nome, matricula: r.matricula ?? '', telefone: r.telefone ?? '',
-      email: r.email ?? '', turmaId: r.turma_id, ativo: r.ativo ?? true, createdAt: r.created_at,
-      turma: r.classes ? { id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno, disciplina: r.classes.disciplina ?? '', professor: r.classes.professor ?? '', diasSemana: r.classes.dias_semana ?? '', nucleo: r.classes.nucleo ?? '', createdAt: r.classes.created_at } : undefined,
-    })));
+        email: r.email ?? '', turmaId: r.turma_id, ativo: r.ativo ?? true, createdAt: r.created_at,
+        turma: r.classes ? { id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno, disciplina: r.classes.disciplina ?? '', professor: r.classes.professor ?? '', diasSemana: r.classes.dias_semana ?? '', nucleo: r.classes.nucleo ?? '', createdAt: r.classes.created_at } : undefined,
+      })));
+    }
     setLoading(false);
   }, []);
 
@@ -39,7 +46,7 @@ const AlunosTab = () => {
 
   const save = async () => {
     if (!form.nome.trim()) { toast.error('Nome é obrigatório'); return; }
-    const payload = { nome: form.nome, matricula: form.matricula, telefone: form.telefone, email: form.email, turma_id: form.turmaId || null, ativo: form.ativo };
+    const payload = { nome: form.nome, matricula: form.matricula, telefone: form.telefone, email: form.email, turma_id: (form.turmaId && form.turmaId !== 'none') ? form.turmaId : null, ativo: form.ativo };
     if (editingId) {
       const { error } = await supabase.from('alunos').update(payload).eq('id', editingId);
       if (!error) { toast.success('Aluno atualizado'); } else { toast.error('Erro ao salvar'); }
@@ -145,10 +152,10 @@ const AlunosTab = () => {
             </div>
             <div>
               <label className="form-label">Turma</label>
-              <Select value={form.turmaId} onValueChange={v => setForm(p => ({ ...p, turmaId: v }))}>
+              <Select value={form.turmaId || 'none'} onValueChange={v => setForm(p => ({ ...p, turmaId: v === 'none' ? '' : v }))}>
                 <SelectTrigger className="form-input"><SelectValue placeholder="Selecionar turma" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sem turma</SelectItem>
+                  <SelectItem value="none">— Sem turma —</SelectItem>
                   {turmas.map(t => <SelectItem key={t.id} value={t.id}>{t.nome} — {t.turno}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -193,7 +200,7 @@ const AlunosTab = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((a, i) => (
+                {filtered.map((a) => (
                   <tr key={a.id} className="table-row">
                     <td className="table-td">
                       <div className="flex items-center gap-3">
