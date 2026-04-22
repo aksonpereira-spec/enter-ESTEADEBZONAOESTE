@@ -1,19 +1,21 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, Users, Building2, CreditCard, ClipboardCheck, GraduationCap, Menu, X, ChevronRight } from 'lucide-react';
+import { LogOut, Users, Building2, CreditCard, ClipboardCheck, GraduationCap, Menu, X, ChevronRight, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AlunosTab from '@/components/tabs/AlunosTab';
 import TurmasTab from '@/components/tabs/TurmasTab';
 import MensalidadeTab from '@/components/tabs/MensalidadeTab';
 import ChamadaTab from '@/components/tabs/ChamadaTab';
+import FinanceiroTab from '@/components/tabs/FinanceiroTab';
 
-type Tab = 'alunos' | 'turmas' | 'mensalidade' | 'chamada';
+type Tab = 'alunos' | 'turmas' | 'mensalidade' | 'chamada' | 'financeiro';
 
 const TABS = [
   { id: 'alunos' as Tab, label: 'Cadastro de Alunos', icon: Users, desc: 'Gerencie os alunos cadastrados' },
   { id: 'turmas' as Tab, label: 'Turmas', icon: Building2, desc: 'Cadastre e organize as turmas' },
   { id: 'mensalidade' as Tab, label: 'Mensalidade', icon: CreditCard, desc: 'Controle de pagamentos' },
   { id: 'chamada' as Tab, label: 'Chamada', icon: ClipboardCheck, desc: 'Lista de presença' },
+  { id: 'financeiro' as Tab, label: 'Financeiro', icon: BarChart3, desc: 'Resumo financeiro e comissões' },
 ];
 
 const MainApp = () => {
@@ -128,6 +130,7 @@ const MainApp = () => {
             {activeTab === 'turmas' && <TurmasTab />}
             {activeTab === 'mensalidade' && <MensalidadeTab />}
             {activeTab === 'chamada' && <ChamadaTab />}
+            {activeTab === 'financeiro' && <FinanceiroTab />}
           </div>
         </main>
       </div>

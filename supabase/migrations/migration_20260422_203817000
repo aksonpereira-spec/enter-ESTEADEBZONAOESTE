@@ -1,0 +1,84 @@
+
+DO $$
+DECLARE
+  v_turma_id UUID;
+  a1 UUID; a2 UUID; a3 UUID; a4 UUID; a5 UUID; a6 UUID; a7 UUID;
+  a8 UUID; a9 UUID; a10 UUID; a11 UUID; a12 UUID; a13 UUID; a14 UUID;
+  a15 UUID; a16 UUID; a17 UUID; a18 UUID; a19 UUID; a20 UUID; a21 UUID;
+  a22 UUID; a23 UUID; a24 UUID; a25 UUID; a26 UUID; a27 UUID;
+BEGIN
+  -- Only import if alunos table is empty
+  IF NOT EXISTS (SELECT 1 FROM public.alunos LIMIT 1) THEN
+
+    -- Create turma
+    INSERT INTO public.classes (nome, turno, disciplina, professor, nucleo)
+    VALUES ('Zona Oeste 2026', 'Noite', 'Teologia', '', 'Zona Oeste')
+    RETURNING id INTO v_turma_id;
+
+    -- Create disciplines
+    INSERT INTO public.classes (nome, turno, disciplina, professor, nucleo, honorario)
+    VALUES 
+      ('Introdução à Teologia', 'Noite', 'Introdução à Teologia', 'Cláudio Ananias', 'Zona Oeste', 0),
+      ('Teontologia', 'Noite', 'Teontologia', 'Sérgio Lins', 'Zona Oeste', 0);
+
+    -- Insert alunos
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Francisco Justino da Silva', '', v_turma_id, true) RETURNING id INTO a1;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('José Sérgio de Oliveira', '', v_turma_id, true) RETURNING id INTO a2;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Erick Luiz Souto de Oliveira', '', v_turma_id, true) RETURNING id INTO a3;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Adalberto Vicente Dias', '', v_turma_id, true) RETURNING id INTO a4;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Joabe Lyra da Silva', '', v_turma_id, true) RETURNING id INTO a5;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('José Carlos de Souza', '', v_turma_id, true) RETURNING id INTO a6;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Marcos de Melo Costa', '', v_turma_id, true) RETURNING id INTO a7;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Malaquias Batista Fidelis', '', v_turma_id, true) RETURNING id INTO a8;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Fabio Luiz de Oliveira Tavares', '', v_turma_id, true) RETURNING id INTO a9;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Francisco de Assis Pereira da Silva', '', v_turma_id, true) RETURNING id INTO a10;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Arlyson Lourenço Marques Batista', '', v_turma_id, true) RETURNING id INTO a11;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Kamila Oliveira Souza', '', v_turma_id, true) RETURNING id INTO a12;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Karine Oliveira Souza Alves', '', v_turma_id, true) RETURNING id INTO a13;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Marcos Valerio Alves dos Santos', '', v_turma_id, true) RETURNING id INTO a14;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Daniele Silva de Oliveira', '', v_turma_id, true) RETURNING id INTO a15;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Carlos Wagner Medeiros Dantas', '', v_turma_id, true) RETURNING id INTO a16;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Nayara Caroline Ribeiro da Silva', '', v_turma_id, true) RETURNING id INTO a17;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Antônio Gerson de Lima', '', v_turma_id, true) RETURNING id INTO a18;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Safira Maria dos Santos Silva', '', v_turma_id, true) RETURNING id INTO a19;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Suelma Fernandes dos Santos Dias', '', v_turma_id, true) RETURNING id INTO a20;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Ana Juciele de Oliveira', '', v_turma_id, true) RETURNING id INTO a21;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Akson Pereira da Silva', '', v_turma_id, true) RETURNING id INTO a22;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Erika Pereira da Silva', '', v_turma_id, true) RETURNING id INTO a23;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('José Marcos Bento', '', v_turma_id, true) RETURNING id INTO a24;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Maria Magnólia de Macedo Rodrigues Silva', '', v_turma_id, true) RETURNING id INTO a25;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Natanael Filipe', '', v_turma_id, true) RETURNING id INTO a26;
+    INSERT INTO public.alunos (nome, matricula, turma_id, ativo) VALUES ('Francisco das Chagas de Moura', '', v_turma_id, true) RETURNING id INTO a27;
+
+    -- Insert mensalidades Abril 2026
+    INSERT INTO public.mensalidades (aluno_id, turma_id, mes, situacao, dinheiro, pix_deposito, cartao_assinatura, cartao_debito, valor, obs, apostilas, qtd_apostilas) VALUES
+      (a1,  v_turma_id, '2026-04', 'Pago', 0, 0, 120, 0, 120, '', 'Não', 0),
+      (a2,  v_turma_id, '2026-04', 'Pago', 0, 0, 120, 0, 120, '', 'Não', 0),
+      (a3,  v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a4,  v_turma_id, '2026-04', 'Pago', 0, 224, 0, 0, 224, '02 Apostila + 1 Camisa', 'Sim', 2),
+      (a5,  v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a6,  v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a7,  v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a8,  v_turma_id, '2026-04', 'Pago', 0, 130, 0, 0, 130, '', 'Não', 0),
+      (a9,  v_turma_id, '2026-04', 'Pago', 0, 80, 0, 0, 80, 'Bolsa parcial/vice dirigente', 'Não', 0),
+      (a10, v_turma_id, '2026-04', 'Pago', 132, 0, 0, 0, 132, 'Mensalidade + apostila', 'Sim', 1),
+      (a11, v_turma_id, '2026-04', 'Pago', 0, 0, 120, 0, 120, '', 'Não', 0),
+      (a12, v_turma_id, '2026-04', 'Pago', 0, 80, 0, 0, 80, 'Bolsista/Funcionário/IEADERN', 'Não', 0),
+      (a13, v_turma_id, '2026-04', 'Pago', 0, 80, 0, 0, 80, 'Bolsista/Funcionário/IEADERN', 'Não', 0),
+      (a14, v_turma_id, '2026-04', 'Pago', 0, 0, 106, 0, 106, 'Bolsa parcial/vice dirigente', 'Não', 0),
+      (a15, v_turma_id, '2026-04', 'Pago', 0, 110, 0, 0, 110, 'Desconto casal', 'Não', 0),
+      (a16, v_turma_id, '2026-04', 'Pago', 0, 110, 0, 0, 110, '', 'Não', 0),
+      (a17, v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a18, v_turma_id, '2026-04', 'Pago', 0, 106, 0, 0, 106, 'Bolsa/dirigente + saldo de R$ 8,00', 'Não', 0),
+      (a19, v_turma_id, '2026-04', 'Pago', 0, 130, 0, 0, 130, '', 'Não', 0),
+      (a20, v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a21, v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a22, v_turma_id, '2026-04', 'Pago', 0, 0, 0, 0, 0, 'COORDENADOR – 01 CAMISA', 'Não', 0),
+      (a23, v_turma_id, '2026-04', 'Pago', 0, 0, 0, 0, 0, 'ESPOSA COORDENADOR – 02 APOSTILAS – 01 CAMISA', 'Sim', 2),
+      (a24, v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a25, v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0),
+      (a26, v_turma_id, '2026-04', 'Pago', 0, 113, 0, 0, 113, 'BOLSA PARCIAL/DIRIGENTE', 'Não', 0),
+      (a27, v_turma_id, '2026-04', 'Pago', 0, 120, 0, 0, 120, '', 'Não', 0);
+
+  END IF;
+END $$;

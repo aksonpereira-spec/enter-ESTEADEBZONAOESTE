@@ -1,0 +1,14 @@
+
+-- Add 4 payment columns to mensalidades
+ALTER TABLE public.mensalidades ADD COLUMN IF NOT EXISTS dinheiro NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE public.mensalidades ADD COLUMN IF NOT EXISTS pix_deposito NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE public.mensalidades ADD COLUMN IF NOT EXISTS cartao_assinatura NUMERIC(10,2) DEFAULT 0;
+ALTER TABLE public.mensalidades ADD COLUMN IF NOT EXISTS cartao_debito NUMERIC(10,2) DEFAULT 0;
+
+-- Add honorário to classes (teacher payment)
+ALTER TABLE public.classes ADD COLUMN IF NOT EXISTS honorario NUMERIC(10,2) DEFAULT 0;
+
+-- Update valor to be derived from sum of 4 columns for any existing rows
+UPDATE public.mensalidades
+SET valor = COALESCE(dinheiro,0) + COALESCE(pix_deposito,0) + COALESCE(cartao_assinatura,0) + COALESCE(cartao_debito,0)
+WHERE dinheiro = 0 AND pix_deposito = 0 AND cartao_assinatura = 0 AND cartao_debito = 0 AND valor > 0;

@@ -1,6 +1,5 @@
 export type Turno = 'Manhã' | 'Tarde' | 'Noite';
 export type SituacaoPagamento = 'Pago' | 'Pendente';
-export type FormaPagamento = 'Dinheiro' | 'Pix/Transferência' | 'Cartão Crédito' | 'Cartão Débito' | '';
 
 export interface Turma {
   id: string;
@@ -10,6 +9,7 @@ export interface Turma {
   professor: string;
   diasSemana: string;
   nucleo: string;
+  honorario: number;
   createdAt: string;
 }
 
@@ -32,8 +32,11 @@ export interface Mensalidade {
   turmaId: string | null;
   mes: string;
   situacao: SituacaoPagamento;
-  formaPagamento: FormaPagamento;
-  valor: number;
+  dinheiro: number;
+  pixDeposito: number;
+  cartaoAssinatura: number;
+  cartaoDebito: number;
+  valor: number; // total = sum of the 4 above
   obs: string;
   apostilas: 'Sim' | 'Não';
   qtdApostilas: number;

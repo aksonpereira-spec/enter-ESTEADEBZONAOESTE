@@ -3231,6 +3231,7 @@ export type Database = {
           created_at: string | null
           dias_semana: string | null
           disciplina: string | null
+          honorario: number | null
           id: string
           nome: string
           nucleo: string | null
@@ -3241,6 +3242,7 @@ export type Database = {
           created_at?: string | null
           dias_semana?: string | null
           disciplina?: string | null
+          honorario?: number | null
           id?: string
           nome?: string
           nucleo?: string | null
@@ -3251,6 +3253,7 @@ export type Database = {
           created_at?: string | null
           dias_semana?: string | null
           disciplina?: string | null
+          honorario?: number | null
           id?: string
           nome?: string
           nucleo?: string | null
@@ -3323,11 +3326,15 @@ export type Database = {
         Row: {
           aluno_id: string
           apostilas: string | null
+          cartao_assinatura: number | null
+          cartao_debito: number | null
           created_at: string | null
+          dinheiro: number | null
           forma_pagamento: string | null
           id: string
           mes: string
           obs: string | null
+          pix_deposito: number | null
           qtd_apostilas: number | null
           situacao: string | null
           turma_id: string | null
@@ -3336,11 +3343,15 @@ export type Database = {
         Insert: {
           aluno_id: string
           apostilas?: string | null
+          cartao_assinatura?: number | null
+          cartao_debito?: number | null
           created_at?: string | null
+          dinheiro?: number | null
           forma_pagamento?: string | null
           id?: string
           mes?: string
           obs?: string | null
+          pix_deposito?: number | null
           qtd_apostilas?: number | null
           situacao?: string | null
           turma_id?: string | null
@@ -3349,11 +3360,15 @@ export type Database = {
         Update: {
           aluno_id?: string
           apostilas?: string | null
+          cartao_assinatura?: number | null
+          cartao_debito?: number | null
           created_at?: string | null
+          dinheiro?: number | null
           forma_pagamento?: string | null
           id?: string
           mes?: string
           obs?: string | null
+          pix_deposito?: number | null
           qtd_apostilas?: number | null
           situacao?: string | null
           turma_id?: string | null

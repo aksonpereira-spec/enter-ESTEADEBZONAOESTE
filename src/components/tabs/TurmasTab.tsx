@@ -15,7 +15,7 @@ const TURNO_COLOR: Record<Turno, string> = {
   'Noite': 'badge-noite',
 };
 
-const emptyForm = { nome: '', turno: 'Noite' as Turno, disciplina: '', professor: '', diasSemana: '', nucleo: '' };
+const emptyForm = { nome: '', turno: 'Noite' as Turno, disciplina: '', professor: '', diasSemana: '', nucleo: '', honorario: '' };
 
 const TurmasTab = () => {
   const [turmas, setTurmas] = useState<Turma[]>([]);
@@ -31,7 +31,7 @@ const TurmasTab = () => {
       id: r.id, nome: r.nome, turno: r.turno as Turno,
       disciplina: r.disciplina ?? '', professor: r.professor ?? '',
       diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '',
-      createdAt: r.created_at,
+      honorario: Number(r.honorario) || 0, createdAt: r.created_at,
     })));
     setLoading(false);
   }, []);
@@ -40,7 +40,7 @@ const TurmasTab = () => {
 
   const save = async () => {
     if (!form.nome.trim()) { toast.error('Nome da turma é obrigatório'); return; }
-    const payload = { nome: form.nome, turno: form.turno, disciplina: form.disciplina, professor: form.professor, dias_semana: form.diasSemana, nucleo: form.nucleo };
+    const payload = { nome: form.nome, turno: form.turno, disciplina: form.disciplina, professor: form.professor, dias_semana: form.diasSemana, nucleo: form.nucleo, honorario: parseFloat(form.honorario) || 0 };
     if (editingId) {
       const { error } = await supabase.from('classes').update(payload).eq('id', editingId);
       if (!error) { toast.success('Turma atualizada'); } else { toast.error('Erro ao salvar'); }
@@ -57,7 +57,7 @@ const TurmasTab = () => {
   };
 
   const edit = (t: Turma) => {
-    setForm({ nome: t.nome, turno: t.turno, disciplina: t.disciplina, professor: t.professor, diasSemana: t.diasSemana, nucleo: t.nucleo });
+    setForm({ nome: t.nome, turno: t.turno, disciplina: t.disciplina, professor: t.professor, diasSemana: t.diasSemana, nucleo: t.nucleo, honorario: t.honorario ? String(t.honorario) : '' });
     setEditingId(t.id); setShowForm(true);
   };
 
@@ -105,6 +105,10 @@ const TurmasTab = () => {
               <label className="form-label">Núcleo</label>
               <Input className="form-input" placeholder="Nome do núcleo" value={form.nucleo} onChange={e => setForm(p => ({ ...p, nucleo: e.target.value }))} />
             </div>
+            <div>
+              <label className="form-label">Honorário do Professor (R$)</label>
+              <Input type="number" min="0" step="10" className="form-input" placeholder="0,00" value={form.honorario} onChange={e => setForm(p => ({ ...p, honorario: e.target.value }))} />
+            </div>
           </div>
           <div className="flex gap-3 mt-5">
             <Button onClick={save} className="btn-primary gap-2"><Check className="w-4 h-4" />Salvar</Button>
@@ -142,6 +146,7 @@ const TurmasTab = () => {
                 {t.disciplina && <div className="flex items-center gap-1.5"><BookOpen className="w-3 h-3 flex-shrink-0" /><span>{t.disciplina}</span></div>}
                 {t.professor && <div className="flex items-center gap-1.5"><User className="w-3 h-3 flex-shrink-0" /><span>{t.professor}</span></div>}
                 {t.diasSemana && <div className="flex items-center gap-1.5"><Clock className="w-3 h-3 flex-shrink-0" /><span>{t.diasSemana}</span></div>}
+                {t.honorario > 0 && <div className="flex items-center gap-1.5 text-emerald-600 font-medium"><span>Honorário: R$ {t.honorario.toFixed(2).replace('.',',')}</span></div>}
               </div>
               <div className="flex gap-2 mt-4 pt-3 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button variant="outline" size="sm" onClick={() => edit(t)} className="flex-1 h-8 text-xs gap-1"><Edit2 className="w-3 h-3" />Editar</Button>
