@@ -113,12 +113,29 @@ const StudentPortal = () => {
   const saveProfile = async () => {
     setSaving(true);
     const payload = { ...profile, auth_user_id: studentAuthId, aluno_id: studentId, updated_at: new Date().toISOString() };
+
+    let saveError = false;
     if (profileId) {
       const { error } = await supabase.from('student_profiles').update(payload).eq('id', profileId);
-      if (error) { toast.error('Erro ao salvar'); } else toast.success('Ficha salva!');
+      if (error) { toast.error('Erro ao salvar'); saveError = true; }
     } else {
       const { data, error } = await supabase.from('student_profiles').insert(payload).select().maybeSingle();
-      if (error) { toast.error('Erro ao salvar'); } else { if (data) setProfileId(data.id); toast.success('Ficha salva!'); }
+      if (error) { toast.error('Erro ao salvar'); saveError = true; }
+      else if (data) setProfileId(data.id);
+    }
+
+    if (!saveError) {
+      // Sincronizar campos relevantes com a tabela alunos
+      if (studentId) {
+        const alunoUpdate: Record<string, string> = {};
+        if (profile.nome_completo) alunoUpdate.nome = profile.nome_completo;
+        if (profile.telefone || profile.celular1) alunoUpdate.telefone = profile.telefone || profile.celular1;
+        if (profile.email_contato) alunoUpdate.email = profile.email_contato;
+        if (Object.keys(alunoUpdate).length > 0) {
+          await supabase.from('alunos').update(alunoUpdate).eq('id', studentId);
+        }
+      }
+      toast.success('Ficha salva e dados atualizados no sistema!');
     }
     setSaving(false);
   };

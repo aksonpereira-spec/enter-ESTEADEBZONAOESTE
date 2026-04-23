@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Users, FileText, Eye, Link2, CheckCircle2, AlertCircle,
-  ChevronDown, ChevronUp, Mail, Phone, MapPin, BookOpen, Upload,
+  ChevronDown, ChevronUp, Mail, Phone, MapPin, BookOpen, Upload, RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -58,6 +58,8 @@ const FichasTab = () => {
   const [linkingId, setLinkingId] = useState<string | null>(null);
   const [selectedAluno, setSelectedAluno] = useState<Record<string, string>>({});
 
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+
   useEffect(() => {
     loadProfiles();
     loadAlunos();
@@ -102,13 +104,35 @@ const FichasTab = () => {
     loadDocs(authUserId);
   };
 
+  const syncProfileToAluno = async (profile: StudentProfile, alunoId: string) => {
+    const update: Record<string, string> = {};
+    if (profile.nome_completo) update.nome = profile.nome_completo;
+    if (profile.telefone || profile.celular1) update.telefone = profile.telefone || profile.celular1;
+    if (profile.email_contato) update.email = profile.email_contato;
+    if (Object.keys(update).length > 0) {
+      await supabase.from('alunos').update(update).eq('id', alunoId);
+    }
+  };
+
+  const handleSync = async (profile: StudentProfile) => {
+    if (!profile.aluno_id) return;
+    setSyncingId(profile.id);
+    await syncProfileToAluno(profile, profile.aluno_id);
+    toast.success('Dados sincronizados com o cadastro do aluno!');
+    setSyncingId(null);
+    await loadProfiles();
+  };
+
   const linkAluno = async (profileId: string, alunoId: string) => {
     if (!alunoId || alunoId === 'none') return;
     setLinkingId(profileId);
     const { error } = await supabase.from('student_profiles').update({ aluno_id: alunoId }).eq('id', profileId);
     if (error) { toast.error('Erro ao vincular aluno'); }
     else {
-      toast.success('Aluno vinculado com sucesso!');
+      // Sync profile data to aluno after linking
+      const profile = profiles.find(p => p.id === profileId);
+      if (profile) await syncProfileToAluno({ ...profile, aluno_id: alunoId }, alunoId);
+      toast.success('Aluno vinculado e dados sincronizados!');
       await loadProfiles();
     }
     setLinkingId(null);
@@ -131,6 +155,16 @@ const FichasTab = () => {
 
   return (
     <div className="space-y-5">
+      {/* Info card */}
+      <div className="content-card p-4 bg-blue-50 border-blue-200">
+        <p className="text-sm text-blue-800">
+          <strong>Como funciona:</strong> Quando um aluno cria conta no Portal do Aluno, sua ficha aparece aqui. 
+          Use <strong>Vincular</strong> para associar a ficha a um aluno existente, ou ela já vem vinculada automaticamente quando o aluno informa a matrícula. 
+          Clique em <strong>Sincronizar Dados</strong> para atualizar nome, telefone e e-mail no cadastro oficial do aluno.
+          Ao salvar a ficha no portal, os dados são sincronizados automaticamente.
+        </p>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="content-card p-4 bg-primary/5">
@@ -224,10 +258,18 @@ const FichasTab = () => {
                         Vincular ao Cadastro de Aluno
                       </p>
                       {isLinked ? (
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
                           <span className="text-sm text-emerald-600 font-medium">
                             Vinculado: {profile.aluno_nome} ({profile.aluno_matricula})
                           </span>
+                          <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                            disabled={syncingId === profile.id}
+                            onClick={() => handleSync(profile)}>
+                            {syncingId === profile.id
+                              ? <div className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />
+                              : <RefreshCw className="w-3 h-3" />}
+                            Sincronizar Dados
+                          </Button>
                           <Button variant="outline" size="sm" className="h-7 text-xs"
                             onClick={() => unlinkAluno(profile.id)}>
                             Desvincular
@@ -260,6 +302,11 @@ const FichasTab = () => {
                             Vincular
                           </Button>
                         </div>
+                      )}
+                      {isLinked && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          <strong>Sincronizar Dados</strong>: copia nome, telefone e e-mail da ficha online para o cadastro do aluno no sistema.
+                        </p>
                       )}
                     </div>
 
