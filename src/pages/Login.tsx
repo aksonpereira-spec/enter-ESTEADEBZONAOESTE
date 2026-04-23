@@ -48,10 +48,8 @@ const Login = () => {
     const { error } = await signUpStudent(email, studentPwd, matricula, nome);
     if (error) { toast.error(error); setIsSubmitting(false); }
     else {
-      toast.success('Conta criada! Faça login para acessar seu portal.');
-      setMode('student-login');
-      setStudentPwd(''); setStudentPwdConfirm('');
-      setIsSubmitting(false);
+      toast.success('Conta criada com sucesso! Abrindo seu portal...');
+      navigate('/portal'); // redirect explícito após signup (auto-confirm já autentica)
     }
   };
 

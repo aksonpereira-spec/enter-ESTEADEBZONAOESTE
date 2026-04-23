@@ -111,7 +111,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
     if (data.user) {
+      setIsAuthenticated(true);
+      setUserRole('student');
       setStudentAuthId(data.user.id);
+      setSession(data.session);
       await resolveStudent(data.user.id);
     }
     return {};
@@ -125,22 +128,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const userId = data.user.id;
     let alunoId: string | null = null;
 
+    // Set auth state immediately (auto-confirm already signed in)
+    setIsAuthenticated(true);
+    setUserRole('student');
+    setStudentAuthId(userId);
+    if (data.session) setSession(data.session);
+
     // Try to link to existing aluno by matricula
     if (matricula?.trim()) {
       const { data: aluno } = await supabase.from('alunos').select('id, nome').eq('matricula', matricula.trim()).maybeSingle();
       if (aluno) {
         alunoId = aluno.id;
+        setStudentId(aluno.id);
         setStudentName(aluno.nome);
       }
     }
 
-    // Create student profile
-    await supabase.from('student_profiles').insert({
+    if (nome?.trim()) setStudentName(nome.trim());
+
+    // Create student profile (upsert to handle duplicate signups)
+    const { error: insErr } = await supabase.from('student_profiles').upsert({
       auth_user_id: userId,
       aluno_id: alunoId,
       nome_completo: nome?.trim() || '',
       email_contato: email,
-    });
+    }, { onConflict: 'auth_user_id' });
+
+    if (insErr) {
+      console.error('Profile insert error:', insErr);
+    }
 
     return {};
   };
