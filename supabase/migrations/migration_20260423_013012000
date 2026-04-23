@@ -1,0 +1,11 @@
+
+-- Make student-docs bucket public for easy viewing
+UPDATE storage.buckets SET public = true WHERE id = 'student-docs';
+
+-- Add public read policy for the objects
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Public read student docs') THEN
+    CREATE POLICY "Public read student docs" ON storage.objects FOR SELECT USING (bucket_id = 'student-docs');
+  END IF;
+END $$;

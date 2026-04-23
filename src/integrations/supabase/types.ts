@@ -3419,6 +3419,170 @@ export type Database = {
         }
         Relationships: []
       }
+      student_documents: {
+        Row: {
+          aluno_id: string | null
+          auth_user_id: string | null
+          id: string
+          nome_arquivo: string | null
+          storage_path: string | null
+          tipo: string
+          uploaded_at: string | null
+          url: string | null
+        }
+        Insert: {
+          aluno_id?: string | null
+          auth_user_id?: string | null
+          id?: string
+          nome_arquivo?: string | null
+          storage_path?: string | null
+          tipo: string
+          uploaded_at?: string | null
+          url?: string | null
+        }
+        Update: {
+          aluno_id?: string | null
+          auth_user_id?: string | null
+          id?: string
+          nome_arquivo?: string | null
+          storage_path?: string | null
+          tipo?: string
+          uploaded_at?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_documents_aluno_id_fkey"
+            columns: ["aluno_id"]
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_profiles: {
+        Row: {
+          aluno_id: string | null
+          ano_termino: string | null
+          auth_user_id: string | null
+          bairro: string | null
+          carga_horaria: string | null
+          celular1: string | null
+          celular2: string | null
+          cep: string | null
+          cidade: string | null
+          cidade_nascimento: string | null
+          congregacao: string | null
+          cpf: string | null
+          created_at: string | null
+          data_batismo: string | null
+          data_conversao: string | null
+          data_nascimento: string | null
+          email_contato: string | null
+          endereco: string | null
+          estado_civil: string | null
+          funcao_igreja: string | null
+          habilidades: string | null
+          id: string
+          igreja_membro: string | null
+          instituicao: string | null
+          nivel_formacao: string | null
+          nome_completo: string | null
+          nome_mae: string | null
+          nome_pai: string | null
+          orgao_expedidor: string | null
+          profissao: string | null
+          rg: string | null
+          sexo: string | null
+          telefone: string | null
+          uf: string | null
+          uf_nascimento: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          aluno_id?: string | null
+          ano_termino?: string | null
+          auth_user_id?: string | null
+          bairro?: string | null
+          carga_horaria?: string | null
+          celular1?: string | null
+          celular2?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cidade_nascimento?: string | null
+          congregacao?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          data_batismo?: string | null
+          data_conversao?: string | null
+          data_nascimento?: string | null
+          email_contato?: string | null
+          endereco?: string | null
+          estado_civil?: string | null
+          funcao_igreja?: string | null
+          habilidades?: string | null
+          id?: string
+          igreja_membro?: string | null
+          instituicao?: string | null
+          nivel_formacao?: string | null
+          nome_completo?: string | null
+          nome_mae?: string | null
+          nome_pai?: string | null
+          orgao_expedidor?: string | null
+          profissao?: string | null
+          rg?: string | null
+          sexo?: string | null
+          telefone?: string | null
+          uf?: string | null
+          uf_nascimento?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          aluno_id?: string | null
+          ano_termino?: string | null
+          auth_user_id?: string | null
+          bairro?: string | null
+          carga_horaria?: string | null
+          celular1?: string | null
+          celular2?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cidade_nascimento?: string | null
+          congregacao?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          data_batismo?: string | null
+          data_conversao?: string | null
+          data_nascimento?: string | null
+          email_contato?: string | null
+          endereco?: string | null
+          estado_civil?: string | null
+          funcao_igreja?: string | null
+          habilidades?: string | null
+          id?: string
+          igreja_membro?: string | null
+          instituicao?: string | null
+          nivel_formacao?: string | null
+          nome_completo?: string | null
+          nome_mae?: string | null
+          nome_pai?: string | null
+          orgao_expedidor?: string | null
+          profissao?: string | null
+          rg?: string | null
+          sexo?: string | null
+          telefone?: string | null
+          uf?: string | null
+          uf_nascimento?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_profiles_aluno_id_fkey"
+            columns: ["aluno_id"]
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       students: {
         Row: {
           apostilas: string | null

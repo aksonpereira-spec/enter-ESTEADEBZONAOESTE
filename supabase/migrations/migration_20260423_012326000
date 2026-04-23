@@ -1,0 +1,105 @@
+
+-- Student profiles table (ficha de matrícula)
+CREATE TABLE IF NOT EXISTS public.student_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  aluno_id UUID REFERENCES public.alunos(id) ON DELETE SET NULL,
+  auth_user_id UUID UNIQUE,
+  -- Seção 1: Dados Pessoais
+  nome_completo TEXT DEFAULT '',
+  sexo TEXT DEFAULT '',
+  estado_civil TEXT DEFAULT '',
+  data_nascimento TEXT DEFAULT '',
+  cidade_nascimento TEXT DEFAULT '',
+  uf_nascimento TEXT DEFAULT '',
+  rg TEXT DEFAULT '',
+  cpf TEXT DEFAULT '',
+  orgao_expedidor TEXT DEFAULT '',
+  endereco TEXT DEFAULT '',
+  bairro TEXT DEFAULT '',
+  cep TEXT DEFAULT '',
+  cidade TEXT DEFAULT '',
+  uf TEXT DEFAULT '',
+  telefone TEXT DEFAULT '',
+  celular1 TEXT DEFAULT '',
+  celular2 TEXT DEFAULT '',
+  email_contato TEXT DEFAULT '',
+  nome_pai TEXT DEFAULT '',
+  nome_mae TEXT DEFAULT '',
+  profissao TEXT DEFAULT '',
+  -- Seção 2: Dados Eclesiásticos
+  data_conversao TEXT DEFAULT '',
+  data_batismo TEXT DEFAULT '',
+  igreja_membro TEXT DEFAULT '',
+  congregacao TEXT DEFAULT '',
+  funcao_igreja TEXT DEFAULT '',
+  -- Seção 3: Dados do Curso
+  nivel_formacao TEXT DEFAULT '',
+  carga_horaria TEXT DEFAULT '',
+  instituicao TEXT DEFAULT '',
+  ano_termino TEXT DEFAULT '',
+  -- Seção 4: Habilidades
+  habilidades TEXT DEFAULT '',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.student_profiles ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'student_profiles' AND policyname = 'Students manage own profile') THEN
+    CREATE POLICY "Students manage own profile" ON public.student_profiles FOR ALL USING (auth_user_id = auth.uid()) WITH CHECK (auth_user_id = auth.uid());
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'student_profiles' AND policyname = 'Admin read all profiles') THEN
+    CREATE POLICY "Admin read all profiles" ON public.student_profiles FOR SELECT USING (true);
+  END IF;
+END $$;
+
+-- Student documents table
+CREATE TABLE IF NOT EXISTS public.student_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  aluno_id UUID REFERENCES public.alunos(id) ON DELETE SET NULL,
+  auth_user_id UUID,
+  tipo TEXT NOT NULL,
+  nome_arquivo TEXT DEFAULT '',
+  url TEXT DEFAULT '',
+  storage_path TEXT DEFAULT '',
+  uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.student_documents ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'student_documents' AND policyname = 'Students manage own documents') THEN
+    CREATE POLICY "Students manage own documents" ON public.student_documents FOR ALL USING (auth_user_id = auth.uid()) WITH CHECK (auth_user_id = auth.uid());
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'student_documents' AND policyname = 'Admin read all documents') THEN
+    CREATE POLICY "Admin read all documents" ON public.student_documents FOR SELECT USING (true);
+  END IF;
+END $$;
+
+-- Storage bucket for student documents
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'student-docs',
+  'student-docs',
+  false,
+  52428800,
+  ARRAY['image/jpeg','image/png','image/webp','application/pdf','image/gif','image/bmp','image/tiff']
+)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Students upload own docs') THEN
+    CREATE POLICY "Students upload own docs" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'student-docs' AND auth.uid()::text = (storage.foldername(name))[1]);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Students read own docs') THEN
+    CREATE POLICY "Students read own docs" ON storage.objects FOR SELECT USING (bucket_id = 'student-docs' AND auth.uid()::text = (storage.foldername(name))[1]);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Admin read all docs') THEN
+    CREATE POLICY "Admin read all docs" ON storage.objects FOR SELECT USING (bucket_id = 'student-docs');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname = 'Students delete own docs') THEN
+    CREATE POLICY "Students delete own docs" ON storage.objects FOR DELETE USING (bucket_id = 'student-docs' AND auth.uid()::text = (storage.foldername(name))[1]);
+  END IF;
+END $$;

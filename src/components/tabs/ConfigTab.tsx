@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { NucleoConfig } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Check, Building2, User, Users, Settings } from 'lucide-react';
+import { Check, Building2, User, Users, Settings, Download, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ConfigTabProps {
@@ -14,9 +14,12 @@ const ConfigTab = ({ onConfigChange }: ConfigTabProps) => {
   const [config, setConfig] = useState<NucleoConfig>({
     id: '', nomeNucleo: '', coordenadorNome: '', coordenadorEsposaNome: '', ano: new Date().getFullYear(),
   });
-  const [form, setForm] = useState({ nomeNucleo: '', coordenadorNome: '', coordenadorEsposaNome: '', ano: String(new Date().getFullYear()) });
+  const [form, setForm] = useState({
+    nomeNucleo: '', coordenadorNome: '', coordenadorEsposaNome: '', ano: String(new Date().getFullYear()),
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -29,7 +32,10 @@ const ConfigTab = ({ onConfigChange }: ConfigTabProps) => {
           ano: data.ano ?? new Date().getFullYear(),
         };
         setConfig(cfg);
-        setForm({ nomeNucleo: cfg.nomeNucleo, coordenadorNome: cfg.coordenadorNome, coordenadorEsposaNome: cfg.coordenadorEsposaNome, ano: String(cfg.ano) });
+        setForm({
+          nomeNucleo: cfg.nomeNucleo, coordenadorNome: cfg.coordenadorNome,
+          coordenadorEsposaNome: cfg.coordenadorEsposaNome, ano: String(cfg.ano),
+        });
         onConfigChange(cfg);
       }
       setLoading(false);
@@ -46,7 +52,6 @@ const ConfigTab = ({ onConfigChange }: ConfigTabProps) => {
       coordenador_esposa_nome: form.coordenadorEsposaNome.trim(),
       ano: parseInt(form.ano) || new Date().getFullYear(),
     };
-
     let error;
     if (config.id) {
       ({ error } = await supabase.from('nucleo_config').update(payload).eq('id', config.id));
@@ -55,7 +60,6 @@ const ConfigTab = ({ onConfigChange }: ConfigTabProps) => {
       error = res.error;
       if (res.data) setConfig(p => ({ ...p, id: res.data.id }));
     }
-
     if (error) { toast.error('Erro ao salvar: ' + error.message); }
     else {
       const newCfg: NucleoConfig = { ...config, ...form, ano: parseInt(form.ano) || new Date().getFullYear() };
@@ -64,6 +68,46 @@ const ConfigTab = ({ onConfigChange }: ConfigTabProps) => {
       toast.success('Configurações salvas com sucesso!');
     }
     setSaving(false);
+  };
+
+  const handleBackup = async () => {
+    setBackingUp(true);
+    try {
+      const [alunos, turmas, mensalidades, chamadas, registros, nucleoConfig] = await Promise.all([
+        supabase.from('alunos').select('*'),
+        supabase.from('classes').select('*'),
+        supabase.from('mensalidades').select('*'),
+        supabase.from('attendance_sessions').select('*'),
+        supabase.from('attendance_records').select('*'),
+        supabase.from('nucleo_config').select('*'),
+      ]);
+      const backup = {
+        exportedAt: new Date().toISOString(),
+        version: '1.0',
+        data: {
+          alunos: alunos.data || [],
+          turmas: turmas.data || [],
+          mensalidades: mensalidades.data || [],
+          chamadas: chamadas.data || [],
+          registros_presenca: registros.data || [],
+          nucleo_config: nucleoConfig.data || [],
+        },
+      };
+      const json = JSON.stringify(backup, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `backup-esteadeb-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Backup gerado e salvo com sucesso!');
+    } catch {
+      toast.error('Erro ao gerar backup');
+    }
+    setBackingUp(false);
   };
 
   if (loading) return <div className="flex justify-center py-16"><div className="loading-spinner" /></div>;
@@ -128,18 +172,33 @@ const ConfigTab = ({ onConfigChange }: ConfigTabProps) => {
               onChange={e => setForm(p => ({ ...p, ano: e.target.value }))} />
           </div>
         </div>
-
         <div className="mt-5 pt-4 border-t border-border">
-          <div className="flex items-center gap-3">
-            <Button onClick={save} disabled={saving} className="btn-primary gap-2">
-              {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4" />}
-              {saving ? 'Salvando...' : 'Salvar Configurações'}
-            </Button>
-          </div>
+          <Button onClick={save} disabled={saving} className="btn-primary gap-2">
+            {saving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-4 h-4" />}
+            {saving ? 'Salvando...' : 'Salvar Configurações'}
+          </Button>
           <p className="text-xs text-muted-foreground mt-2">
             As alterações são aplicadas imediatamente em toda a interface.
           </p>
         </div>
+      </div>
+
+      {/* Backup */}
+      <div className="content-card p-6 border-l-4 border-l-emerald-500">
+        <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+          <Shield className="w-4 h-4 text-emerald-600" />Backup dos Dados
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Gere um arquivo JSON com todos os dados do sistema: alunos, turmas, mensalidades, chamadas e registros de presença.
+          Guarde este arquivo em local seguro como cópia de segurança.
+        </p>
+        <Button onClick={handleBackup} disabled={backingUp} variant="outline"
+          className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300">
+          {backingUp
+            ? <div className="w-3.5 h-3.5 border-2 border-emerald-300 border-t-emerald-600 rounded-full animate-spin" />
+            : <Download className="w-4 h-4" />}
+          {backingUp ? 'Gerando backup...' : 'Baixar Backup Completo (JSON)'}
+        </Button>
       </div>
 
       {/* Info */}
