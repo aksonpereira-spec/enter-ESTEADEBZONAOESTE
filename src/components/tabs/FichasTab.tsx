@@ -71,17 +71,18 @@ const COORDINATOR_PHONE_DISPLAY = '(84) 99848-1937';
 
 function buildWhatsAppLink(rawPhone: string, studentName: string): string {
   const phone = '55' + rawPhone.replace(/\D/g, '');
+  const firstName = (studentName || 'aluno(a)').split(' ')[0];
   const lines = [
-    'Ola ' + (studentName || 'aluno(a)') + '! Tudo bem?',
+    '👋 Olá, *' + firstName + '*! Tudo bem?',
     '',
-    'Identificamos uma pendencia na sua mensalidade na *ESTEADEB Nucleo Zona Oeste*.',
+    '⚠️ Identificamos uma pendência na sua mensalidade da *ESTEADEB Núcleo Zona Oeste*.',
     '',
-    'Voce pode regularizar via *PIX*:',
+    '💳 Para regularizar, utilize o *PIX*:',
     'Chave CNPJ: *' + PIX_KEY_DISPLAY + '*',
     '',
-    'Outras opcoes - coordenador: *' + COORDINATOR_PHONE_DISPLAY + '*',
+    '📞 Dúvidas? Fale com o coordenador: *' + COORDINATOR_PHONE_DISPLAY + '*',
     '',
-    'Apos pagar, envie o comprovante. Deus abencoe!',
+    '✅ Após pagar, envie o comprovante. Deus abençoe! 🙏',
   ];
   return 'https://wa.me/' + phone + '?text=' + lines.map(l => encodeURIComponent(l)).join('%0A');
 }

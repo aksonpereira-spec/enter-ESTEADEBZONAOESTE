@@ -20,15 +20,15 @@ function buildClassroomWhatsApp(rawPhone: string, nome: string): string {
   const phone = '55' + rawPhone.replace(/\D/g, '');
   const firstName = nome.split(' ')[0];
   const lines = [
-    'Parabens, *' + firstName + '*!',
+    '🎉 Parabéns, *' + firstName + '*!',
     '',
-    'Seu pagamento foi confirmado na *ESTEADEB Nucleo Zona Oeste*.',
-    'Bem-vindo(a) a mais um mes de crescimento na Palavra de Deus!',
+    '✅ Seu pagamento foi confirmado na *ESTEADEB Núcleo Zona Oeste*.',
+    'Seja bem-vindo(a) a mais um mês de crescimento na Palavra de Deus!',
     '',
-    'Acesse sua sala de aula pelo link abaixo:',
+    '📚 Acesse sua sala de aula pelo link abaixo:',
     CLASSROOM_LINK,
     '',
-    'Que Deus abencoe seus estudos teologicos!',
+    '🙏 Que Deus abençoe seus estudos teológicos!',
   ];
   return 'https://wa.me/' + phone + '?text=' + lines.map(l => encodeURIComponent(l)).join('%0A');
 }
@@ -37,16 +37,16 @@ function buildCobrancaWhatsApp(rawPhone: string, nome: string): string {
   const phone = '55' + rawPhone.replace(/\D/g, '');
   const firstName = nome.split(' ')[0];
   const lines = [
-    'Ola, *' + firstName + '*! Tudo bem?',
+    '👋 Olá, *' + firstName + '*! Tudo bem?',
     '',
-    'Identificamos uma pendencia na sua mensalidade na *ESTEADEB Nucleo Zona Oeste*.',
+    '⚠️ Identificamos uma pendência na sua mensalidade da *ESTEADEB Núcleo Zona Oeste*.',
     '',
-    'Voce pode regularizar via *PIX*:',
+    '💳 Para regularizar, utilize o *PIX*:',
     'Chave CNPJ: *' + PIX_KEY_DISPLAY + '*',
     '',
-    'Outras opcoes - coordenador: *' + COORDINATOR_PHONE_DISPLAY + '*',
+    '📞 Dúvidas? Fale com o coordenador: *' + COORDINATOR_PHONE_DISPLAY + '*',
     '',
-    'Apos pagar, envie o comprovante. Deus abencoe!',
+    '✅ Após pagar, envie o comprovante. Deus abençoe! 🙏',
   ];
   return 'https://wa.me/' + phone + '?text=' + lines.map(l => encodeURIComponent(l)).join('%0A');
 }
