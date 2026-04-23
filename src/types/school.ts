@@ -33,6 +33,7 @@ export interface Aluno {
   tipoBolsa: TipoBolsa;
   ativo: boolean;
   createdAt: string;
+  inadimplente?: boolean;
 }
 
 export interface Mensalidade {

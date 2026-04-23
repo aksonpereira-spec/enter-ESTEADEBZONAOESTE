@@ -7,10 +7,52 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   CreditCard, CheckCircle2, Clock, TrendingUp,
   Filter, RefreshCw, History, ArrowLeft, BookOpen, AlertCircle, Banknote, Smartphone,
+  MessageCircle, AlertTriangle, ChevronDown, ChevronUp, GraduationCap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const MONTHS_LABELS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+// ─── Constants ────────────────────────────────────────────────────────────────
+const CLASSROOM_LINK = 'https://classroom.google.com/c/Nzk3MDE0NzA3Mjkx?hl=pt-BR&cjc=c3h37ebz';
+const PIX_KEY_DISPLAY = '40.800.393/0001-32';
+const COORDINATOR_PHONE_DISPLAY = '(84) 99848-1937';
+
+function buildClassroomWhatsApp(rawPhone: string, nome: string): string {
+  const phone = '55' + rawPhone.replace(/\D/g, '');
+  const firstName = nome.split(' ')[0];
+  const lines = [
+    'Parabens, *' + firstName + '*!',
+    '',
+    'Seu pagamento foi confirmado na *ESTEADEB Nucleo Zona Oeste*.',
+    'Bem-vindo(a) a mais um mes de crescimento na Palavra de Deus!',
+    '',
+    'Acesse sua sala de aula pelo link abaixo:',
+    CLASSROOM_LINK,
+    '',
+    'Que Deus abencoe seus estudos teologicos!',
+  ];
+  return 'https://wa.me/' + phone + '?text=' + lines.map(l => encodeURIComponent(l)).join('%0A');
+}
+
+function buildCobrancaWhatsApp(rawPhone: string, nome: string): string {
+  const phone = '55' + rawPhone.replace(/\D/g, '');
+  const firstName = nome.split(' ')[0];
+  const lines = [
+    'Ola, *' + firstName + '*! Tudo bem?',
+    '',
+    'Identificamos uma pendencia na sua mensalidade na *ESTEADEB Nucleo Zona Oeste*.',
+    '',
+    'Voce pode regularizar via *PIX*:',
+    'Chave CNPJ: *' + PIX_KEY_DISPLAY + '*',
+    '',
+    'Outras opcoes - coordenador: *' + COORDINATOR_PHONE_DISPLAY + '*',
+    '',
+    'Apos pagar, envie o comprovante. Deus abencoe!',
+  ];
+  return 'https://wa.me/' + phone + '?text=' + lines.map(l => encodeURIComponent(l)).join('%0A');
+}
+
+// ─── Month helpers ────────────────────────────────────────────────────────────
+const MONTHS_LABELS = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 const mesLabel = (mes: string) => {
   const [y, m] = mes.split('-');
@@ -34,16 +76,17 @@ const getMonthOptions = () => {
   return opts;
 };
 
-// ─── Row: local state, saves on blur ─────────────────────────────────────────
+// ─── Row ─────────────────────────────────────────────────────────────────────
 interface RowProps {
   aluno: Aluno;
   mensalidade: Mensalidade | undefined;
   selectedMonth: string;
   onSaved: () => void;
   onOpenHistory: (aluno: Aluno) => void;
+  onSituacaoPago: (aluno: Aluno) => void;
 }
 
-const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHistory }: RowProps) => {
+const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHistory, onSituacaoPago }: RowProps) => {
   const [dinheiro, setDinheiro] = useState(mensalidade?.dinheiro ? String(mensalidade.dinheiro) : '');
   const [pix, setPix] = useState(mensalidade?.pixDeposito ? String(mensalidade.pixDeposito) : '');
   const [cartAss, setCartAss] = useState(mensalidade?.cartaoAssinatura ? String(mensalidade.cartaoAssinatura) : '');
@@ -54,7 +97,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
   const [situacao, setSituacao] = useState<'Pago' | 'Pendente'>(mensalidade?.situacao || 'Pendente');
   const prevIdRef = useRef(mensalidade?.id);
 
-  // Sync when month changes (new mensalidade loaded)
   useEffect(() => {
     if (prevIdRef.current !== mensalidade?.id) {
       prevIdRef.current = mensalidade?.id;
@@ -114,9 +156,14 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
   };
 
   const handleSituacaoOverride = (val: 'Pago' | 'Pendente') => {
+    const wasNotPago = situacao !== 'Pago';
     setSituacao(val);
     if (mensalidade?.id) {
       supabase.from('mensalidades').update({ situacao: val }).eq('id', mensalidade.id);
+    }
+    // Auto-send classroom link when confirming payment
+    if (val === 'Pago' && wasNotPago) {
+      onSituacaoPago(aluno);
     }
   };
 
@@ -125,7 +172,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
 
   return (
     <tr className="table-row">
-      {/* Nome */}
       <td className="table-td">
         <button onClick={() => onOpenHistory(aluno)} className="flex items-center gap-2 group text-left w-full">
           <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold transition-all group-hover:ring-2 group-hover:ring-primary/30 ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-500'}`}>
@@ -138,7 +184,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
           <History className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         </button>
       </td>
-      {/* Dinheiro */}
       <td className="table-td hidden sm:table-cell">
         <Input type="number" min="0" step="0.01" placeholder="0,00"
           className="h-8 text-right text-xs form-input w-24"
@@ -146,7 +191,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
           onChange={e => setDinheiro(e.target.value)}
           onBlur={e => handleNumBlur('dinheiro', e.target.value)} />
       </td>
-      {/* Pix */}
       <td className="table-td hidden sm:table-cell">
         <Input type="number" min="0" step="0.01" placeholder="0,00"
           className="h-8 text-right text-xs form-input w-24"
@@ -154,7 +198,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
           onChange={e => setPix(e.target.value)}
           onBlur={e => handleNumBlur('pix_deposito', e.target.value)} />
       </td>
-      {/* Cartão Assinatura */}
       <td className="table-td hidden md:table-cell">
         <Input type="number" min="0" step="0.01" placeholder="0,00"
           className="h-8 text-right text-xs form-input w-24"
@@ -162,7 +205,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
           onChange={e => setCartAss(e.target.value)}
           onBlur={e => handleNumBlur('cartao_assinatura', e.target.value)} />
       </td>
-      {/* Cartão Débito */}
       <td className="table-td hidden md:table-cell">
         <Input type="number" min="0" step="0.01" placeholder="0,00"
           className="h-8 text-right text-xs form-input w-24"
@@ -170,13 +212,11 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
           onChange={e => setCartDeb(e.target.value)}
           onBlur={e => handleNumBlur('cartao_debito', e.target.value)} />
       </td>
-      {/* Total (readonly) */}
       <td className="table-td text-right">
         <span className={`font-bold text-sm ${total > 0 ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-          {total > 0 ? `R$\u00a0${total.toFixed(2).replace('.', ',')}` : '—'}
+          {total > 0 ? `R$\u00a0${total.toFixed(2).replace('.', ',')}` : '\u2014'}
         </span>
       </td>
-      {/* Situação */}
       <td className="table-td text-center">
         <Select value={situacao} onValueChange={handleSituacaoOverride}>
           <SelectTrigger className={`h-7 text-xs font-semibold border-0 rounded-full px-3 w-[100px] mx-auto ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-500'}`}>
@@ -188,7 +228,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
           </SelectContent>
         </Select>
       </td>
-      {/* Apostilas */}
       <td className="table-td hidden lg:table-cell">
         <Select value={apostilas} onValueChange={handleApostilas}>
           <SelectTrigger className="h-8 text-xs form-input w-20"><SelectValue /></SelectTrigger>
@@ -198,7 +237,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
           </SelectContent>
         </Select>
       </td>
-      {/* Qtd */}
       <td className="table-td hidden lg:table-cell">
         <Input type="number" min="0" step="1" placeholder="0"
           className="h-8 text-center text-xs form-input w-14"
@@ -207,7 +245,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
           onChange={e => setQtd(e.target.value)}
           onBlur={e => upsert({ qtd_apostilas: parseInt(e.target.value) || 0, apostilas })} />
       </td>
-      {/* Obs */}
       <td className="table-td hidden xl:table-cell">
         <Input placeholder="Obs..."
           className="h-8 text-xs form-input"
@@ -243,6 +280,7 @@ const MensalidadeTab = () => {
   const [selectedAluno, setSelectedAluno] = useState<Aluno | null>(null);
   const [alunoHistory, setAlunoHistory] = useState<PaymentHistory[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showInadimplentes, setShowInadimplentes] = useState(false);
 
   const loadBase = useCallback(async () => {
     const [aRes, tRes] = await Promise.all([
@@ -250,12 +288,23 @@ const MensalidadeTab = () => {
       supabase.from('classes').select('*').order('nome'),
     ]);
     if (aRes.error) { setLoadError(aRes.error.message); return; }
-    type AR = { id: string; nome: string; matricula: string | null; telefone: string | null; email: string | null; turma_id: string | null; ativo: boolean; created_at: string; classes: { id: string; nome: string; turno: string; disciplina: string | null; professor: string | null; dias_semana: string | null; nucleo: string | null; honorario: number | null; created_at: string } | null };
+    type AR = {
+      id: string; nome: string; matricula: string | null; telefone: string | null;
+      email: string | null; turma_id: string | null; ativo: boolean; created_at: string;
+      inadimplente: boolean | null;
+      classes: { id: string; nome: string; turno: string; disciplina: string | null; professor: string | null; dias_semana: string | null; nucleo: string | null; honorario: number | null; created_at: string } | null
+    };
     if (aRes.data) setAlunos((aRes.data as AR[]).map(r => ({
       id: r.id, nome: r.nome, matricula: r.matricula ?? '', telefone: r.telefone ?? '',
       email: r.email ?? '', turmaId: r.turma_id, ativo: r.ativo, createdAt: r.created_at,
       tipoBolsa: '' as const,
-      turma: r.classes ? { id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno as 'Manhã'|'Tarde'|'Noite', disciplina: r.classes.disciplina ?? '', professor: r.classes.professor ?? '', diasSemana: r.classes.dias_semana ?? '', nucleo: r.classes.nucleo ?? '', honorario: r.classes.honorario ?? 0, createdAt: r.classes.created_at } : undefined,
+      inadimplente: r.inadimplente ?? false,
+      turma: r.classes ? {
+        id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno as 'Manhã'|'Tarde'|'Noite',
+        disciplina: r.classes.disciplina ?? '', professor: r.classes.professor ?? '',
+        diasSemana: r.classes.dias_semana ?? '', nucleo: r.classes.nucleo ?? '',
+        honorario: r.classes.honorario ?? 0, createdAt: r.classes.created_at,
+      } : undefined,
     })));
     if (tRes.data) setTurmas(tRes.data.map(r => ({
       id: r.id, nome: r.nome, turno: r.turno as 'Manhã'|'Tarde'|'Noite',
@@ -288,10 +337,21 @@ const MensalidadeTab = () => {
   const filteredAlunos = selectedTurma === 'all' ? alunos : alunos.filter(a => a.turmaId === selectedTurma);
   const getMensalidade = (id: string) => mensalidades.find(m => m.alunoId === id);
 
-  // Summary stats
   const pagos = filteredAlunos.filter(a => getMensalidade(a.id)?.situacao === 'Pago');
   const totalArrecadado = mensalidades.reduce((s, m) => s + m.valor, 0);
   const totalApostilas = mensalidades.reduce((s, m) => s + m.qtdApostilas, 0);
+  const inadimplentes = alunos.filter(a => a.inadimplente);
+
+  // Called when admin confirms Pago status in a row
+  const handleSituacaoPago = (aluno: Aluno) => {
+    if (!aluno.telefone) {
+      toast.info('Pagamento confirmado! Sem telefone cadastrado para enviar WhatsApp.');
+      return;
+    }
+    const url = buildClassroomWhatsApp(aluno.telefone, aluno.nome);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    toast.success('Pagamento confirmado! Abrindo WhatsApp para ' + aluno.nome.split(' ')[0] + '...');
+  };
 
   const openHistory = async (aluno: Aluno) => {
     setSelectedAluno(aluno);
@@ -319,7 +379,7 @@ const MensalidadeTab = () => {
     doc.setFillColor(30,64,175); doc.rect(0,0,297,30,'F');
     try { doc.addImage('/logo-esteadeb.png','PNG',10,5,50,14,undefined,'FAST'); } catch (_e) { /* skip */ }
     doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
-    doc.text('RELATÓRIO DE MENSALIDADES', 148,13,{align:'center'});
+    doc.text('RELATORIO DE MENSALIDADES', 148,13,{align:'center'});
     doc.setFontSize(8); doc.setFont('helvetica','normal');
     doc.text(`${mesLab} — ${turmaLab} — Gerado em ${new Date().toLocaleDateString('pt-BR')}`,148,20,{align:'center'});
     doc.text(`Pagos: ${pagos.length} | Pendentes: ${filteredAlunos.length - pagos.length} | Total: R$ ${totalArrecadado.toFixed(2).replace('.',',')} | Apostilas: ${totalApostilas}`,148,26,{align:'center'});
@@ -327,10 +387,10 @@ const MensalidadeTab = () => {
     let y = 36;
     doc.setFillColor(30,64,175); doc.rect(10,y,277,7,'F');
     doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','bold');
-    doc.text('Nº',12,y+5); doc.text('Nome',20,y+5); doc.text('Dinheiro',90,y+5);
-    doc.text('Pix/Dep.',115,y+5); doc.text('Cart.Ass',140,y+5); doc.text('Cart.Déb',163,y+5);
+    doc.text('No',12,y+5); doc.text('Nome',20,y+5); doc.text('Dinheiro',90,y+5);
+    doc.text('Pix/Dep.',115,y+5); doc.text('Cart.Ass',140,y+5); doc.text('Cart.Deb',163,y+5);
     doc.text('Total',188,y+5); doc.text('Apostilas',208,y+5); doc.text('Qtd',228,y+5);
-    doc.text('Situação',270,y+5,{align:'right'}); y+=7;
+    doc.text('Situacao',270,y+5,{align:'right'}); y+=7;
 
     doc.setTextColor(0,0,0);
     lista.forEach((a, i) => {
@@ -370,7 +430,7 @@ const MensalidadeTab = () => {
             </div>
             <div>
               <h2 className="text-xl font-bold text-foreground">{selectedAluno.nome}</h2>
-              {selectedAluno.matricula && <p className="text-sm text-muted-foreground">Matrícula: {selectedAluno.matricula}</p>}
+              {selectedAluno.matricula && <p className="text-sm text-muted-foreground">Matricula: {selectedAluno.matricula}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -389,19 +449,19 @@ const MensalidadeTab = () => {
           {loadingHistory ? (
             <div className="flex justify-center py-8"><div className="loading-spinner" /></div>
           ) : alunoHistory.length === 0 ? (
-            <div className="empty-state"><History className="w-10 h-10 mx-auto mb-2 opacity-30"/><p>Sem histórico de pagamentos</p></div>
+            <div className="empty-state"><History className="w-10 h-10 mx-auto mb-2 opacity-30"/><p>Sem historico de pagamentos</p></div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="table-head">
-                    <th className="table-th text-left">Mês</th>
+                    <th className="table-th text-left">Mes</th>
                     <th className="table-th text-right hidden sm:table-cell">Dinheiro</th>
                     <th className="table-th text-right hidden sm:table-cell">Pix/Dep.</th>
                     <th className="table-th text-right hidden md:table-cell">Cart. Ass.</th>
-                    <th className="table-th text-right hidden md:table-cell">Cart. Déb.</th>
+                    <th className="table-th text-right hidden md:table-cell">Cart. Deb.</th>
                     <th className="table-th text-right">Total</th>
-                    <th className="table-th text-center">Situação</th>
+                    <th className="table-th text-center">Situacao</th>
                     <th className="table-th text-center hidden lg:table-cell">Apostilas</th>
                     <th className="table-th text-left hidden xl:table-cell">Obs</th>
                   </tr>
@@ -424,7 +484,7 @@ const MensalidadeTab = () => {
                         </td>
                         <td className="table-td text-center hidden lg:table-cell">
                           <span className={`text-xs px-2 py-0.5 rounded ${h.apostilas==='Sim'?'bg-amber-100 text-amber-700':''}`}>{h.apostilas}</span>
-                          {h.qtdApostilas > 0 && <span className="ml-1 text-xs text-amber-600 font-bold">×{h.qtdApostilas}</span>}
+                          {h.qtdApostilas > 0 && <span className="ml-1 text-xs text-amber-600 font-bold">x{h.qtdApostilas}</span>}
                         </td>
                         <td className="table-td text-xs text-muted-foreground hidden xl:table-cell">{h.obs||'—'}</td>
                       </tr>
@@ -489,6 +549,78 @@ const MensalidadeTab = () => {
         </div>
       )}
 
+      {/* Inadimplentes Panel */}
+      {inadimplentes.length > 0 && (
+        <div className="content-card overflow-hidden border-orange-200">
+          <button
+            onClick={() => setShowInadimplentes(v => !v)}
+            className="w-full flex items-center justify-between p-4 hover:bg-orange-50/50 transition-colors">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-orange-600" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-orange-800">
+                  Cobranca via WhatsApp — {inadimplentes.length} inadimplente{inadimplentes.length !== 1 ? 's' : ''}
+                </p>
+                <p className="text-xs text-orange-600">Clique para expandir e enviar mensagens de cobranca</p>
+              </div>
+            </div>
+            {showInadimplentes ? <ChevronUp className="w-4 h-4 text-orange-500" /> : <ChevronDown className="w-4 h-4 text-orange-500" />}
+          </button>
+
+          {showInadimplentes && (
+            <div className="border-t border-orange-200 bg-orange-50/30 p-4 space-y-2">
+              <p className="text-xs text-orange-700 mb-3">
+                Selecione um aluno inadimplente e clique em <strong>Enviar WhatsApp</strong> para enviar uma mensagem de cobranca automatica com dados de pagamento via PIX.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {inadimplentes.map(aluno => {
+                  const phone = aluno.telefone;
+                  return (
+                    <div key={aluno.id}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-white border border-orange-200">
+                      <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-orange-700">{aluno.nome.charAt(0)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{aluno.nome}</p>
+                        {aluno.matricula && <p className="text-xs text-muted-foreground">{aluno.matricula}</p>}
+                        {!phone && <p className="text-xs text-red-500 italic">Sem telefone cadastrado</p>}
+                      </div>
+                      {phone ? (
+                        <a href={buildCobrancaWhatsApp(phone, aluno.nome)} target="_blank" rel="noopener noreferrer">
+                          <Button size="sm"
+                            className="gap-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white flex-shrink-0">
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Enviar
+                          </Button>
+                        </a>
+                      ) : (
+                        <Button size="sm" disabled className="gap-1 h-8 text-xs flex-shrink-0">
+                          <MessageCircle className="w-3.5 h-3.5" />Sem Tel.
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Classroom link info */}
+      <div className="content-card p-3 flex items-start gap-3 bg-blue-50 border-blue-200">
+        <GraduationCap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-blue-800">Confirmacao de Pagamento Automatica</p>
+          <p className="text-xs text-blue-700 mt-0.5">
+            Ao confirmar o pagamento de um aluno (mudar para <strong>Pago</strong>), o sistema abre automaticamente o WhatsApp com uma mensagem de parabenizacao e o link da sala de aula do Google Classroom.
+          </p>
+        </div>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
@@ -517,9 +649,9 @@ const MensalidadeTab = () => {
       <div className="flex flex-wrap gap-4 text-xs text-muted-foreground px-1">
         <span className="flex items-center gap-1"><Banknote className="w-3 h-3"/><strong>Dinheiro</strong></span>
         <span className="flex items-center gap-1"><Smartphone className="w-3 h-3"/><strong>Pix/Dep/Transf</strong></span>
-        <span className="flex items-center gap-1"><CreditCard className="w-3 h-3"/><strong>Cart.Ass</strong> = Cartão/Assinatura</span>
-        <span className="flex items-center gap-1"><CreditCard className="w-3 h-3"/><strong>Cart.Déb</strong> = Cartão Débito</span>
-        <span className="ml-auto text-primary/70 italic">Clique no nome do aluno para ver histórico completo</span>
+        <span className="flex items-center gap-1"><CreditCard className="w-3 h-3"/><strong>Cart.Ass</strong> = Cartao/Assinatura</span>
+        <span className="flex items-center gap-1"><CreditCard className="w-3 h-3"/><strong>Cart.Deb</strong> = Cartao Debito</span>
+        <span className="ml-auto text-primary/70 italic">Clique no nome do aluno para ver historico completo</span>
       </div>
 
       {/* Table */}
@@ -545,9 +677,9 @@ const MensalidadeTab = () => {
                   <th className="table-th text-right hidden sm:table-cell">Dinheiro</th>
                   <th className="table-th text-right hidden sm:table-cell">Pix/Dep.</th>
                   <th className="table-th text-right hidden md:table-cell">Cart.Ass</th>
-                  <th className="table-th text-right hidden md:table-cell">Cart.Déb</th>
+                  <th className="table-th text-right hidden md:table-cell">Cart.Deb</th>
                   <th className="table-th text-right">Total</th>
-                  <th className="table-th text-center">Situação</th>
+                  <th className="table-th text-center">Situacao</th>
                   <th className="table-th text-center hidden lg:table-cell">Apostilas</th>
                   <th className="table-th text-center hidden lg:table-cell">Qtd</th>
                   <th className="table-th text-left hidden xl:table-cell">Obs</th>
@@ -562,6 +694,7 @@ const MensalidadeTab = () => {
                     selectedMonth={selectedMonth}
                     onSaved={loadMensalidades}
                     onOpenHistory={openHistory}
+                    onSituacaoPago={handleSituacaoPago}
                   />
                 ))}
               </tbody>

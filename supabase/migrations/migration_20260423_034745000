@@ -1,0 +1,10 @@
+-- Allow admin (anon) to update student_profiles for linking/unlinking
+CREATE POLICY "Admin update all profiles"
+  ON student_profiles FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
+
+-- Allow admin to delete student_profiles 
+CREATE POLICY "Admin delete profiles"
+  ON student_profiles FOR DELETE
+  USING (true);
