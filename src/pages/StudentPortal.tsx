@@ -103,6 +103,8 @@ const StudentPortal = () => {
   const [localAlunoId, setLocalAlunoId] = useState<string | null>(null);
   const [alunoMatricula, setAlunoMatricula] = useState<string>('');
   const [pixCopied, setPixCopied] = useState(false);
+  const [alunoInadimplente, setAlunoInadimplente] = useState(false);
+  const [alunoPortalBloqueado, setAlunoPortalBloqueado] = useState(false);
 
   const activeAlunoId = localAlunoId || studentId;
 
@@ -145,11 +147,13 @@ const StudentPortal = () => {
     if (studentId && !localAlunoId) setLocalAlunoId(studentId);
   }, [studentId, localAlunoId]);
 
-  // Load aluno matricula when activeAlunoId changes
+  // Load aluno data when activeAlunoId changes
   useEffect(() => {
     if (activeAlunoId) {
-      supabase.from('alunos').select('matricula').eq('id', activeAlunoId).maybeSingle().then(({ data }) => {
+      supabase.from('alunos').select('matricula, inadimplente, portal_bloqueado').eq('id', activeAlunoId).maybeSingle().then(({ data }) => {
         if (data?.matricula) setAlunoMatricula(data.matricula);
+        setAlunoInadimplente(data?.inadimplente ?? false);
+        setAlunoPortalBloqueado(data?.portal_bloqueado ?? false);
       });
     }
   }, [activeAlunoId]);
@@ -282,6 +286,28 @@ const StudentPortal = () => {
     { id: 'financeiro' as Tab, label: 'Financeiro', icon: CreditCard },
     { id: 'documentos' as Tab, label: 'Documentos', icon: Upload },
   ];
+
+  if (alunoPortalBloqueado) {
+    return (
+      <div className="min-h-screen bg-app-bg flex items-center justify-center p-4">
+        <div className="content-card p-8 max-w-md w-full text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-red-100 flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground">Acesso Suspenso</h2>
+          <p className="text-sm text-muted-foreground">
+            Seu acesso ao Portal do Aluno foi suspenso pelo coordenador.
+            Entre em contato para regularizar sua situacao.
+          </p>
+          <p className="text-sm font-semibold text-primary">(84) 99848-1937</p>
+          <Button variant="outline" onClick={logout} className="gap-2">
+            <LogOut className="w-4 h-4" />
+            Sair
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-app-bg flex flex-col">
@@ -500,69 +526,82 @@ const StudentPortal = () => {
                   <CreditCard className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-foreground">Histórico Financeiro</h1>
-                  <p className="text-sm text-muted-foreground">Acompanhe seus pagamentos (somente leitura)</p>
+                  <h1 className="text-xl font-bold text-foreground">Financeiro</h1>
+                  <p className="text-sm text-muted-foreground">Pagamentos e formas de pagamento</p>
                 </div>
               </div>
 
+              {/* Inadimplente banner */}
+              {alunoInadimplente && (
+                <div className="content-card p-4 bg-red-50 border-red-300 flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-red-700 text-sm">Situacao: Inadimplente</p>
+                    <p className="text-xs text-red-600 mt-0.5">
+                      Voce possui mensalidade(s) em aberto. Regularize sua situacao via PIX abaixo ou entre em contato com o coordenador.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* PIX Card — always visible */}
+              <div className="content-card p-5">
+                <div className="flex flex-col sm:flex-row gap-5 items-start">
+                  <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                    <div className="p-3 bg-white rounded-2xl shadow-sm border border-border">
+                      <QRCodeSVG value={PIX_PAYLOAD} size={140} level="M" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">Escaneie para pagar</span>
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <QrCode className="w-5 h-5 text-primary" />
+                      <h3 className="font-semibold text-foreground text-sm">Pagamento via PIX</h3>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Tipo de chave: <strong>CNPJ</strong></p>
+                      <p className="text-xs text-muted-foreground">Favorecido: <strong>ESTEADEB NUCLEO ZONA OESTE</strong></p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1.5">Chave PIX (CNPJ):</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-muted/50 border border-border rounded-lg px-3 py-2">
+                          <code className="text-sm font-mono font-bold text-foreground tracking-wide">{PIX_KEY_DISPLAY}</code>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={copyPix}
+                          className={`gap-1.5 h-9 flex-shrink-0 transition-all ${pixCopied ? 'border-emerald-300 text-emerald-600 bg-emerald-50' : ''}`}>
+                          {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          {pixCopied ? 'Copiado!' : 'Copiar'}
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      Apos efetuar o pagamento, informe o comprovante ao coordenador para registro da mensalidade.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Historico financeiro */}
+              <h2 className="text-base font-semibold text-foreground">Historico de Pagamentos</h2>
+
               {!activeAlunoId ? (
-                <div className="content-card p-8 text-center">
-                  <AlertCircle className="w-12 h-12 mx-auto mb-3 text-amber-400 opacity-60" />
-                  <p className="font-medium text-foreground">Cadastro ainda não vinculado</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Preencha e salve sua Ficha de Matrícula para gerar automaticamente seu número de matrícula e vincular ao sistema.
+                <div className="content-card p-6 text-center">
+                  <AlertCircle className="w-10 h-10 mx-auto mb-3 text-amber-400 opacity-60" />
+                  <p className="font-medium text-foreground text-sm">Cadastro ainda nao vinculado</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Preencha e salve sua Ficha de Matricula para gerar automaticamente seu numero de matricula.
                   </p>
                 </div>
               ) : loadingMens ? (
-                <div className="flex justify-center py-12"><div className="loading-spinner" /></div>
+                <div className="flex justify-center py-8"><div className="loading-spinner" /></div>
               ) : mensalidades.length === 0 ? (
-                <div className="empty-state">
-                  <CreditCard className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p className="font-medium">Nenhum registro financeiro encontrado</p>
+                <div className="empty-state py-8">
+                  <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium text-sm">Nenhum registro financeiro encontrado</p>
                 </div>
               ) : (
                 <>
-                  {/* PIX Card */}
-                  <div className="content-card p-5">
-                    <div className="flex flex-col sm:flex-row gap-5 items-start">
-                      {/* QR Code */}
-                      <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                        <div className="p-3 bg-white rounded-2xl shadow-sm border border-border">
-                          <QRCodeSVG value={PIX_PAYLOAD} size={140} level="M" />
-                        </div>
-                        <span className="text-xs text-muted-foreground">Escaneie para pagar</span>
-                      </div>
-                      {/* Info */}
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <QrCode className="w-5 h-5 text-primary" />
-                          <h3 className="font-semibold text-foreground text-sm">Pagamento via PIX</h3>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-xs text-muted-foreground">Tipo de chave: <strong>CNPJ</strong></p>
-                          <p className="text-xs text-muted-foreground">Favorecido: <strong>ESTEADEB NÚCLEO ZONA OESTE</strong></p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1.5">Chave PIX (CNPJ):</p>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-muted/50 border border-border rounded-lg px-3 py-2">
-                              <code className="text-sm font-mono font-bold text-foreground tracking-wide">{PIX_KEY_DISPLAY}</code>
-                            </div>
-                            <Button size="sm" variant="outline" onClick={copyPix}
-                              className={`gap-1.5 h-9 flex-shrink-0 transition-all ${pixCopied ? 'border-emerald-300 text-emerald-600 bg-emerald-50' : ''}`}>
-                              {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                              {pixCopied ? 'Copiado!' : 'Copiar'}
-                            </Button>
-                          </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                          Após efetuar o pagamento, informe o comprovante ao coordenador para registro da mensalidade.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Summary cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="content-card p-4 bg-emerald-50 border-0">
                       <p className="text-xs text-muted-foreground">Total Pago</p>
@@ -583,13 +622,13 @@ const StudentPortal = () => {
                       <table className="w-full">
                         <thead>
                           <tr className="table-head">
-                            <th className="table-th text-left">Mês</th>
+                            <th className="table-th text-left">Mes</th>
                             <th className="table-th text-right hidden sm:table-cell">Dinheiro</th>
                             <th className="table-th text-right hidden sm:table-cell">Pix/Dep.</th>
                             <th className="table-th text-right hidden md:table-cell">Cart.Ass.</th>
-                            <th className="table-th text-right hidden md:table-cell">Cart.Déb.</th>
+                            <th className="table-th text-right hidden md:table-cell">Cart.Deb.</th>
                             <th className="table-th text-right">Total</th>
-                            <th className="table-th text-center">Situação</th>
+                            <th className="table-th text-center">Situacao</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">

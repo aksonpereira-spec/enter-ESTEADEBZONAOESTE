@@ -3115,8 +3115,10 @@ export type Database = {
           created_at: string | null
           email: string | null
           id: string
+          inadimplente: boolean | null
           matricula: string | null
           nome: string
+          portal_bloqueado: boolean | null
           telefone: string | null
           tipo_bolsa: string | null
           turma_id: string | null
@@ -3126,8 +3128,10 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          inadimplente?: boolean | null
           matricula?: string | null
           nome?: string
+          portal_bloqueado?: boolean | null
           telefone?: string | null
           tipo_bolsa?: string | null
           turma_id?: string | null
@@ -3137,8 +3141,10 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           id?: string
+          inadimplente?: boolean | null
           matricula?: string | null
           nome?: string
+          portal_bloqueado?: boolean | null
           telefone?: string | null
           tipo_bolsa?: string | null
           turma_id?: string | null

@@ -1,0 +1,3 @@
+-- Add inadimplente and portal_bloqueado columns to alunos
+ALTER TABLE alunos ADD COLUMN IF NOT EXISTS inadimplente BOOLEAN DEFAULT FALSE;
+ALTER TABLE alunos ADD COLUMN IF NOT EXISTS portal_bloqueado BOOLEAN DEFAULT FALSE;
