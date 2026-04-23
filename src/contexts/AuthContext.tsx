@@ -144,7 +144,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    if (nome?.trim()) setStudentName(nome.trim());
+    // If no aluno found by matricula, create a new aluno entry automatically
+    if (!alunoId && nome?.trim()) {
+      const { data: newAluno } = await supabase.from('alunos').insert({
+        nome: nome.trim(),
+        ativo: true,
+        tipo_bolsa: '',
+        telefone: '',
+        email: email,
+      }).select().maybeSingle();
+      if (newAluno) {
+        alunoId = newAluno.id;
+        setStudentId(newAluno.id);
+        setStudentName(nome.trim());
+      }
+    } else if (nome?.trim()) {
+      setStudentName(nome.trim());
+    }
 
     // Create student profile (upsert to handle duplicate signups)
     const { error: insErr } = await supabase.from('student_profiles').upsert({

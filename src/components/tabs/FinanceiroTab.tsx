@@ -55,8 +55,8 @@ const FinanceiroTab = () => {
   const monthOptions = getMonthOptions();
 
   // Taxa cartão
-  const TAXA_ASSINATURA = 0.04; // 4%
-  const TAXA_DEBITO = 0.017;    // 1.7%
+  const TAXA_ASSINATURA = 0.05; // 5%
+  const TAXA_DEBITO = 0.02;    // 2%
 
   const loadData = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -291,8 +291,8 @@ const FinanceiroTab = () => {
             </div>
             {showTaxaInfo && (
               <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 text-xs text-blue-700 flex gap-4">
-                <span>Cartão Assinatura: <strong>-4,0%</strong></span>
-                <span>Cartão Débito: <strong>-1,7%</strong></span>
+                <span>Cartão Assinatura: <strong>-5,0%</strong></span>
+                <span>Cartão Débito: <strong>-2,0%</strong></span>
                 <span>Dinheiro e Pix: <strong>sem taxa</strong></span>
               </div>
             )}
