@@ -3118,6 +3118,7 @@ export type Database = {
           matricula: string | null
           nome: string
           telefone: string | null
+          tipo_bolsa: string | null
           turma_id: string | null
         }
         Insert: {
@@ -3128,6 +3129,7 @@ export type Database = {
           matricula?: string | null
           nome?: string
           telefone?: string | null
+          tipo_bolsa?: string | null
           turma_id?: string | null
         }
         Update: {
@@ -3138,6 +3140,7 @@ export type Database = {
           matricula?: string | null
           nome?: string
           telefone?: string | null
+          tipo_bolsa?: string | null
           turma_id?: string | null
         }
         Relationships: [
@@ -3388,6 +3391,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      nucleo_config: {
+        Row: {
+          ano: number | null
+          coordenador_esposa_nome: string | null
+          coordenador_nome: string | null
+          created_at: string | null
+          id: string
+          nome_nucleo: string | null
+        }
+        Insert: {
+          ano?: number | null
+          coordenador_esposa_nome?: string | null
+          coordenador_nome?: string | null
+          created_at?: string | null
+          id?: string
+          nome_nucleo?: string | null
+        }
+        Update: {
+          ano?: number | null
+          coordenador_esposa_nome?: string | null
+          coordenador_nome?: string | null
+          created_at?: string | null
+          id?: string
+          nome_nucleo?: string | null
+        }
+        Relationships: []
       }
       students: {
         Row: {

@@ -254,6 +254,7 @@ const MensalidadeTab = () => {
     if (aRes.data) setAlunos((aRes.data as AR[]).map(r => ({
       id: r.id, nome: r.nome, matricula: r.matricula ?? '', telefone: r.telefone ?? '',
       email: r.email ?? '', turmaId: r.turma_id, ativo: r.ativo, createdAt: r.created_at,
+      tipoBolsa: '' as const,
       turma: r.classes ? { id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno as 'Manhã'|'Tarde'|'Noite', disciplina: r.classes.disciplina ?? '', professor: r.classes.professor ?? '', diasSemana: r.classes.dias_semana ?? '', nucleo: r.classes.nucleo ?? '', honorario: r.classes.honorario ?? 0, createdAt: r.classes.created_at } : undefined,
     })));
     if (tRes.data) setTurmas(tRes.data.map(r => ({

@@ -1,13 +1,48 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Aluno, Turma } from '@/types/school';
+import { Aluno, Turma, TipoBolsa } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX, Hash, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const emptyForm = { nome: '', matricula: '', telefone: '', email: '', turmaId: '', ativo: true };
+const emptyForm = {
+  nome: '', matricula: '', telefone: '', email: '',
+  turmaId: '', ativo: true, tipoBolsa: '' as TipoBolsa,
+};
+
+const TIPO_BOLSA_OPTIONS: { value: TipoBolsa; label: string }[] = [
+  { value: '', label: '— Nenhum —' },
+  { value: 'Coordenador', label: 'Coordenador' },
+  { value: 'Esposa do Coordenador', label: 'Esposa do Coordenador' },
+  { value: 'Bolsista', label: 'Bolsista' },
+  { value: 'Bolsista Parcial', label: 'Bolsista Parcial' },
+];
+
+const TIPO_BOLSA_STYLE: Record<string, string> = {
+  'Coordenador': 'bg-blue-100 text-blue-700 border border-blue-200',
+  'Esposa do Coordenador': 'bg-purple-100 text-purple-700 border border-purple-200',
+  'Bolsista': 'bg-amber-100 text-amber-700 border border-amber-200',
+  'Bolsista Parcial': 'bg-orange-100 text-orange-700 border border-orange-200',
+};
+
+type AlunoRow = {
+  id: string; nome: string; matricula: string | null; telefone: string | null;
+  email: string | null; turma_id: string | null; ativo: boolean; created_at: string;
+  tipo_bolsa: string | null;
+  classes: { id: string; nome: string; turno: string; disciplina: string | null; professor: string | null; dias_semana: string | null; nucleo: string | null; honorario: number | null; created_at: string } | null;
+};
+
+const generateMatricula = async (ano: number): Promise<string> => {
+  const prefix = String(ano);
+  const { data } = await supabase.from('alunos').select('matricula').ilike('matricula', `${prefix}%`);
+  const nums = (data || [])
+    .map(r => parseInt((r.matricula || '').replace(prefix, ''), 10))
+    .filter(n => !isNaN(n));
+  const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  return `${prefix}${String(next).padStart(3, '0')}`;
+};
 
 const AlunosTab = () => {
   const [alunos, setAlunos] = useState<Aluno[]>([]);
@@ -19,24 +54,26 @@ const AlunosTab = () => {
   const [search, setSearch] = useState('');
   const [filterTurma, setFilterTurma] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [generatingMatricula, setGeneratingMatricula] = useState(false);
+  const [generatingAllMatriculas, setGeneratingAllMatriculas] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     const [aRes, tRes] = await Promise.all([
-      supabase.from('alunos').select('*, classes(id, nome, turno, disciplina, professor, dias_semana, nucleo, created_at)').order('nome'),
+      supabase.from('alunos').select('*, classes(id, nome, turno, disciplina, professor, dias_semana, nucleo, honorario, created_at)').order('nome'),
       supabase.from('classes').select('*').order('nome'),
     ]);
-    if (tRes.data) setTurmas(tRes.data.map(r => ({ id: r.id, nome: r.nome, turno: r.turno, disciplina: r.disciplina ?? '', professor: r.professor ?? '', diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '', createdAt: r.created_at })));
+    if (tRes.data) setTurmas(tRes.data.map(r => ({
+      id: r.id, nome: r.nome, turno: r.turno as 'Manhã'|'Tarde'|'Noite', disciplina: r.disciplina ?? '',
+      professor: r.professor ?? '', diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '',
+      honorario: Number(r.honorario) || 0, createdAt: r.created_at,
+    })));
     if (aRes.data) {
-      type AlunoRow = {
-        id: string; nome: string; matricula: string | null; telefone: string | null;
-        email: string | null; turma_id: string | null; ativo: boolean; created_at: string;
-        classes: { id: string; nome: string; turno: string; disciplina: string | null; professor: string | null; dias_semana: string | null; nucleo: string | null; created_at: string } | null;
-      };
       setAlunos((aRes.data as AlunoRow[]).map(r => ({
-      id: r.id, nome: r.nome, matricula: r.matricula ?? '', telefone: r.telefone ?? '',
+        id: r.id, nome: r.nome, matricula: r.matricula ?? '', telefone: r.telefone ?? '',
         email: r.email ?? '', turmaId: r.turma_id, ativo: r.ativo ?? true, createdAt: r.created_at,
-        turma: r.classes ? { id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno, disciplina: r.classes.disciplina ?? '', professor: r.classes.professor ?? '', diasSemana: r.classes.dias_semana ?? '', nucleo: r.classes.nucleo ?? '', createdAt: r.classes.created_at } : undefined,
+        tipoBolsa: (r.tipo_bolsa ?? '') as TipoBolsa,
+        turma: r.classes ? { id: r.classes.id, nome: r.classes.nome, turno: r.classes.turno as 'Manhã'|'Tarde'|'Noite', disciplina: r.classes.disciplina ?? '', professor: r.classes.professor ?? '', diasSemana: r.classes.dias_semana ?? '', nucleo: r.classes.nucleo ?? '', honorario: Number(r.classes.honorario) || 0, createdAt: r.classes.created_at } : undefined,
       })));
     }
     setLoading(false);
@@ -44,13 +81,52 @@ const AlunosTab = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  const handleGenerateMatricula = async () => {
+    setGeneratingMatricula(true);
+    const matricula = await generateMatricula(new Date().getFullYear());
+    setForm(p => ({ ...p, matricula }));
+    setGeneratingMatricula(false);
+  };
+
+  const handleGenerateAllMatriculas = async () => {
+    const semMatricula = alunos.filter(a => !a.matricula);
+    if (semMatricula.length === 0) { toast.info('Todos os alunos já têm matrícula'); return; }
+    setGeneratingAllMatriculas(true);
+    const ano = new Date().getFullYear();
+    const prefix = String(ano);
+    const { data: existing } = await supabase.from('alunos').select('matricula').ilike('matricula', `${prefix}%`);
+    const usedNums = new Set(
+      (existing || []).map(r => parseInt((r.matricula || '').replace(prefix, ''), 10)).filter(n => !isNaN(n))
+    );
+    let next = 1;
+    const updates: Promise<unknown>[] = [];
+    for (const a of semMatricula) {
+      while (usedNums.has(next)) next++;
+      const mat = `${prefix}${String(next).padStart(3, '0')}`;
+      usedNums.add(next); next++;
+      updates.push(supabase.from('alunos').update({ matricula: mat }).eq('id', a.id));
+    }
+    await Promise.all(updates);
+    toast.success(`${semMatricula.length} matrículas geradas!`);
+    setGeneratingAllMatriculas(false);
+    load();
+  };
+
   const save = async () => {
     if (!form.nome.trim()) { toast.error('Nome é obrigatório'); return; }
-    const payload = { nome: form.nome, matricula: form.matricula, telefone: form.telefone, email: form.email, turma_id: (form.turmaId && form.turmaId !== 'none') ? form.turmaId : null, ativo: form.ativo };
+    const payload = {
+      nome: form.nome, matricula: form.matricula, telefone: form.telefone,
+      email: form.email, turma_id: (form.turmaId && form.turmaId !== 'none') ? form.turmaId : null,
+      ativo: form.ativo, tipo_bolsa: form.tipoBolsa || '',
+    };
     if (editingId) {
       const { error } = await supabase.from('alunos').update(payload).eq('id', editingId);
       if (!error) { toast.success('Aluno atualizado'); } else { toast.error('Erro ao salvar'); }
     } else {
+      // Auto-generate matricula if blank
+      if (!payload.matricula) {
+        payload.matricula = await generateMatricula(new Date().getFullYear());
+      }
       const { error } = await supabase.from('alunos').insert(payload);
       if (!error) { toast.success('Aluno cadastrado'); } else { toast.error('Erro ao salvar'); }
     }
@@ -63,12 +139,20 @@ const AlunosTab = () => {
   };
 
   const edit = (a: Aluno) => {
-    setForm({ nome: a.nome, matricula: a.matricula, telefone: a.telefone, email: a.email, turmaId: a.turmaId ?? '', ativo: a.ativo });
+    setForm({ nome: a.nome, matricula: a.matricula, telefone: a.telefone, email: a.email, turmaId: a.turmaId ?? '', ativo: a.ativo, tipoBolsa: a.tipoBolsa });
     setEditingId(a.id); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const toggleAtivo = async (id: string, ativo: boolean) => {
     await supabase.from('alunos').update({ ativo: !ativo }).eq('id', id);
+    load();
+  };
+
+  const generateForAluno = async (a: Aluno) => {
+    if (a.matricula) { toast.info('Aluno já possui matrícula'); return; }
+    const matricula = await generateMatricula(new Date().getFullYear());
+    await supabase.from('alunos').update({ matricula }).eq('id', a.id);
+    toast.success(`Matrícula ${matricula} gerada`);
     load();
   };
 
@@ -79,6 +163,8 @@ const AlunosTab = () => {
     return matchSearch && matchTurma && matchStatus;
   });
 
+  const semMatriculaCount = alunos.filter(a => !a.matricula).length;
+
   return (
     <div className="space-y-6">
       {/* Stats */}
@@ -87,7 +173,7 @@ const AlunosTab = () => {
           { label: 'Total', value: alunos.length, icon: Users, color: 'text-primary' },
           { label: 'Ativos', value: alunos.filter(a => a.ativo).length, icon: UserCheck, color: 'text-emerald-600' },
           { label: 'Inativos', value: alunos.filter(a => !a.ativo).length, icon: UserX, color: 'text-muted-foreground' },
-          { label: 'Turmas', value: new Set(alunos.map(a => a.turmaId).filter(Boolean)).size, icon: Users, color: 'text-blue-600' },
+          { label: 'Sem Matrícula', value: semMatriculaCount, icon: Hash, color: semMatriculaCount > 0 ? 'text-amber-600' : 'text-muted-foreground' },
         ].map(s => (
           <div key={s.label} className="content-card p-4">
             <div className="flex items-center justify-between">
@@ -124,9 +210,18 @@ const AlunosTab = () => {
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={() => { setShowForm(!showForm); setEditingId(null); setForm(emptyForm); }} className="btn-primary gap-2 flex-shrink-0">
-          {showForm && editingId === null ? <><X className="w-4 h-4" />Cancelar</> : <><Plus className="w-4 h-4" />Novo Aluno</>}
-        </Button>
+        <div className="flex gap-2 flex-shrink-0">
+          {semMatriculaCount > 0 && (
+            <Button variant="outline" size="sm" onClick={handleGenerateAllMatriculas} disabled={generatingAllMatriculas}
+              className="gap-1.5 h-9 text-amber-700 border-amber-200 hover:bg-amber-50">
+              <Wand2 className="w-3.5 h-3.5" />
+              {generatingAllMatriculas ? 'Gerando...' : `Gerar ${semMatriculaCount} matrículas`}
+            </Button>
+          )}
+          <Button onClick={() => { setShowForm(!showForm); setEditingId(null); setForm(emptyForm); }} className="btn-primary gap-2">
+            {showForm && editingId === null ? <><X className="w-4 h-4" />Cancelar</> : <><Plus className="w-4 h-4" />Novo Aluno</>}
+          </Button>
+        </div>
       </div>
 
       {/* Form */}
@@ -140,7 +235,17 @@ const AlunosTab = () => {
             </div>
             <div>
               <label className="form-label">Matrícula</label>
-              <Input className="form-input" placeholder="Nº de matrícula" value={form.matricula} onChange={e => setForm(p => ({ ...p, matricula: e.target.value }))} />
+              <div className="flex gap-2">
+                <Input className="form-input flex-1" placeholder="Auto-gerada se vazio" value={form.matricula}
+                  onChange={e => setForm(p => ({ ...p, matricula: e.target.value }))} />
+                <Button type="button" variant="outline" size="sm"
+                  onClick={handleGenerateMatricula} disabled={generatingMatricula}
+                  className="h-9 px-2.5 flex-shrink-0 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                  title="Gerar número de matrícula">
+                  {generatingMatricula ? <div className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /> : <Hash className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Clique em <Hash className="w-3 h-3 inline" /> para gerar automaticamente</p>
             </div>
             <div>
               <label className="form-label">Telefone</label>
@@ -160,9 +265,23 @@ const AlunosTab = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label className="form-label">Tipo / Bolsa</label>
+              <Select value={form.tipoBolsa || 'none-bolsa'} onValueChange={v => setForm(p => ({ ...p, tipoBolsa: v === 'none-bolsa' ? '' : v as TipoBolsa }))}>
+                <SelectTrigger className="form-input"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none-bolsa">— Nenhum —</SelectItem>
+                  {TIPO_BOLSA_OPTIONS.filter(o => o.value !== '').map(o => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-end gap-3">
               <label className="flex items-center gap-2 cursor-pointer select-none">
-                <div onClick={() => setForm(p => ({ ...p, ativo: !p.ativo }))} className={`w-10 h-5.5 rounded-full transition-colors flex items-center px-0.5 ${form.ativo ? 'bg-emerald-500' : 'bg-border'}`} style={{ height: '1.375rem' }}>
+                <div onClick={() => setForm(p => ({ ...p, ativo: !p.ativo }))}
+                  className={`w-10 rounded-full transition-colors flex items-center px-0.5 ${form.ativo ? 'bg-emerald-500' : 'bg-border'}`}
+                  style={{ height: '1.375rem' }}>
                   <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${form.ativo ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
                 <span className="text-sm text-foreground">{form.ativo ? 'Ativo' : 'Inativo'}</span>
@@ -195,6 +314,7 @@ const AlunosTab = () => {
                   <th className="table-th text-left hidden sm:table-cell">Matrícula</th>
                   <th className="table-th text-left hidden md:table-cell">Telefone</th>
                   <th className="table-th text-left hidden lg:table-cell">Turma</th>
+                  <th className="table-th text-left hidden xl:table-cell">Bolsa</th>
                   <th className="table-th text-center">Status</th>
                   <th className="table-th text-right">Ações</th>
                 </tr>
@@ -204,16 +324,32 @@ const AlunosTab = () => {
                   <tr key={a.id} className="table-row">
                     <td className="table-td">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-primary">{a.nome.charAt(0).toUpperCase()}</span>
+                        <div className={`w-8 h-8 rounded-full border flex items-center justify-center flex-shrink-0 text-xs font-bold
+                          ${a.tipoBolsa === 'Coordenador' ? 'bg-blue-100 border-blue-200 text-blue-700'
+                          : a.tipoBolsa === 'Esposa do Coordenador' ? 'bg-purple-100 border-purple-200 text-purple-700'
+                          : 'bg-primary/10 border-primary/20 text-primary'}`}>
+                          {a.nome.charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <p className="font-medium text-foreground text-sm">{a.nome}</p>
-                          {a.email && <p className="text-xs text-muted-foreground hidden sm:block">{a.email}</p>}
+                          {a.tipoBolsa && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${TIPO_BOLSA_STYLE[a.tipoBolsa] || 'bg-muted text-muted-foreground'}`}>
+                              {a.tipoBolsa}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>
-                    <td className="table-td hidden sm:table-cell text-sm text-muted-foreground">{a.matricula || '—'}</td>
+                    <td className="table-td hidden sm:table-cell">
+                      {a.matricula ? (
+                        <span className="font-mono text-sm font-medium text-foreground bg-muted/60 px-2 py-0.5 rounded">{a.matricula}</span>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => generateForAluno(a)}
+                          className="h-7 px-2 text-xs gap-1 text-amber-600 hover:bg-amber-50 hover:text-amber-700">
+                          <Hash className="w-3 h-3" />Gerar
+                        </Button>
+                      )}
+                    </td>
                     <td className="table-td hidden md:table-cell text-sm text-muted-foreground">
                       {a.telefone ? <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{a.telefone}</span> : '—'}
                     </td>
@@ -225,8 +361,16 @@ const AlunosTab = () => {
                         </div>
                       ) : <span className="text-muted-foreground text-xs">Sem turma</span>}
                     </td>
+                    <td className="table-td hidden xl:table-cell">
+                      {a.tipoBolsa ? (
+                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${TIPO_BOLSA_STYLE[a.tipoBolsa] || 'bg-muted text-muted-foreground'}`}>
+                          {a.tipoBolsa}
+                        </span>
+                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                    </td>
                     <td className="table-td text-center">
-                      <button onClick={() => toggleAtivo(a.id, a.ativo)} className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${a.ativo ? 'badge-pago' : 'badge-neutro'}`}>
+                      <button onClick={() => toggleAtivo(a.id, a.ativo)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${a.ativo ? 'badge-pago' : 'badge-neutro'}`}>
                         {a.ativo ? <><UserCheck className="w-3 h-3" />Ativo</> : <><UserX className="w-3 h-3" />Inativo</>}
                       </button>
                     </td>

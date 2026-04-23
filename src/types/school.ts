@@ -1,5 +1,14 @@
 export type Turno = 'Manhã' | 'Tarde' | 'Noite';
 export type SituacaoPagamento = 'Pago' | 'Pendente';
+export type TipoBolsa = '' | 'Coordenador' | 'Esposa do Coordenador' | 'Bolsista' | 'Bolsista Parcial';
+
+export interface NucleoConfig {
+  id: string;
+  nomeNucleo: string;
+  coordenadorNome: string;
+  coordenadorEsposaNome: string;
+  ano: number;
+}
 
 export interface Turma {
   id: string;
@@ -21,6 +30,7 @@ export interface Aluno {
   email: string;
   turmaId: string | null;
   turma?: Turma;
+  tipoBolsa: TipoBolsa;
   ativo: boolean;
   createdAt: string;
 }
@@ -36,7 +46,7 @@ export interface Mensalidade {
   pixDeposito: number;
   cartaoAssinatura: number;
   cartaoDebito: number;
-  valor: number; // total = sum of the 4 above
+  valor: number;
   obs: string;
   apostilas: 'Sim' | 'Não';
   qtdApostilas: number;

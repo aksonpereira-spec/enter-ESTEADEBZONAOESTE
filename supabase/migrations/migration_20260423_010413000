@@ -1,0 +1,35 @@
+
+-- Config table for nucleo/coordenador
+CREATE TABLE IF NOT EXISTS public.nucleo_config (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome_nucleo TEXT DEFAULT '',
+  coordenador_nome TEXT DEFAULT '',
+  coordenador_esposa_nome TEXT DEFAULT '',
+  ano INTEGER DEFAULT 2026,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+ALTER TABLE public.nucleo_config ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'nucleo_config' AND policyname = 'Allow all nucleo_config'
+  ) THEN
+    CREATE POLICY "Allow all nucleo_config" ON public.nucleo_config FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Insert default config (only if empty)
+INSERT INTO public.nucleo_config (nome_nucleo, coordenador_nome, coordenador_esposa_nome, ano)
+SELECT 'Zona Oeste', 'Akson Pereira da Silva', 'Erika Pereira da Silva', 2026
+WHERE NOT EXISTS (SELECT 1 FROM public.nucleo_config LIMIT 1);
+
+-- Add tipo_bolsa to alunos
+ALTER TABLE public.alunos ADD COLUMN IF NOT EXISTS tipo_bolsa TEXT DEFAULT '';
+
+-- Update coordinator and spouse with their tipo_bolsa from existing data
+UPDATE public.alunos SET tipo_bolsa = 'Coordenador'
+WHERE nome = 'Akson Pereira da Silva' AND (tipo_bolsa IS NULL OR tipo_bolsa = '');
+
+UPDATE public.alunos SET tipo_bolsa = 'Esposa do Coordenador'
+WHERE nome = 'Erika Pereira da Silva' AND (tipo_bolsa IS NULL OR tipo_bolsa = '');

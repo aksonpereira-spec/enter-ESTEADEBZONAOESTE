@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, Users, Building2, CreditCard, ClipboardCheck, GraduationCap, Menu, X, ChevronRight, BarChart3 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { LogOut, Users, Building2, CreditCard, ClipboardCheck, Menu, X, ChevronRight, BarChart3, Settings, MapPin, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AlunosTab from '@/components/tabs/AlunosTab';
 import TurmasTab from '@/components/tabs/TurmasTab';
 import MensalidadeTab from '@/components/tabs/MensalidadeTab';
 import ChamadaTab from '@/components/tabs/ChamadaTab';
 import FinanceiroTab from '@/components/tabs/FinanceiroTab';
+import ConfigTab from '@/components/tabs/ConfigTab';
+import { NucleoConfig } from '@/types/school';
 
-type Tab = 'alunos' | 'turmas' | 'mensalidade' | 'chamada' | 'financeiro';
+type Tab = 'alunos' | 'turmas' | 'mensalidade' | 'chamada' | 'financeiro' | 'config';
 
 const TABS = [
   { id: 'alunos' as Tab, label: 'Cadastro de Alunos', icon: Users, desc: 'Gerencie os alunos cadastrados' },
@@ -16,12 +19,31 @@ const TABS = [
   { id: 'mensalidade' as Tab, label: 'Mensalidade', icon: CreditCard, desc: 'Controle de pagamentos' },
   { id: 'chamada' as Tab, label: 'Chamada', icon: ClipboardCheck, desc: 'Lista de presença' },
   { id: 'financeiro' as Tab, label: 'Financeiro', icon: BarChart3, desc: 'Resumo financeiro e comissões' },
+  { id: 'config' as Tab, label: 'Configurações', icon: Settings, desc: 'Núcleo, coordenador e sistema' },
 ];
 
 const MainApp = () => {
   const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('alunos');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [nucleoConfig, setNucleoConfig] = useState<NucleoConfig>({
+    id: '', nomeNucleo: '', coordenadorNome: '', coordenadorEsposaNome: '', ano: new Date().getFullYear(),
+  });
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      const { data } = await supabase.from('nucleo_config').select('*').limit(1).maybeSingle();
+      if (data) {
+        setNucleoConfig({
+          id: data.id, nomeNucleo: data.nome_nucleo ?? '',
+          coordenadorNome: data.coordenador_nome ?? '',
+          coordenadorEsposaNome: data.coordenador_esposa_nome ?? '',
+          ano: data.ano ?? new Date().getFullYear(),
+        });
+      }
+    };
+    loadConfig();
+  }, []);
 
   const currentTab = TABS.find(t => t.id === activeTab)!;
   const CurrentIcon = currentTab.icon;
@@ -39,13 +61,29 @@ const MainApp = () => {
           </button>
           <img src="/logo-esteadeb.png" alt="Esteadeb" className="h-8 w-auto object-contain" />
           <div className="hidden sm:block h-6 w-px bg-white/20" />
-          <span className="hidden sm:block text-white/70 text-sm font-medium">Sistema de Gestão</span>
+          {/* Dynamic nucleo info */}
+          <div className="hidden sm:flex flex-col leading-tight">
+            {nucleoConfig.nomeNucleo ? (
+              <>
+                <span className="text-white font-semibold text-sm leading-tight">{nucleoConfig.nomeNucleo}</span>
+                {nucleoConfig.coordenadorNome && (
+                  <span className="text-white/60 text-xs leading-tight">
+                    Coord.: {nucleoConfig.coordenadorNome}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-white/70 text-sm font-medium">Sistema de Gestão</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="hidden md:block text-white/60 text-xs mr-2">
-            <GraduationCap className="w-3.5 h-3.5 inline mr-1" />
-            ESTEADEB
-          </span>
+          {nucleoConfig.nomeNucleo && (
+            <span className="hidden lg:flex items-center gap-1 text-white/50 text-xs mr-2">
+              <MapPin className="w-3 h-3" />
+              Núcleo {nucleoConfig.nomeNucleo} · {nucleoConfig.ano}
+            </span>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -92,14 +130,29 @@ const MainApp = () => {
               })}
             </nav>
 
-            {/* Footer info */}
+            {/* Footer info — dynamic nucleo */}
             <div className="mt-auto px-4 pt-4 border-t border-sidebar-border">
-              <div className="text-xs text-sidebar-muted space-y-1">
+              <div className="text-xs text-sidebar-muted space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
                   <span>Banco conectado</span>
                 </div>
-                <p className="text-xs leading-tight">Escola Teológica das<br/>Assembleias de Deus no Brasil</p>
+                {nucleoConfig.nomeNucleo ? (
+                  <>
+                    <div className="flex items-start gap-1.5">
+                      <MapPin className="w-3 h-3 mt-0.5 flex-shrink-0 opacity-70" />
+                      <span className="font-semibold text-sidebar-text opacity-90 leading-snug">Núcleo {nucleoConfig.nomeNucleo}</span>
+                    </div>
+                    {nucleoConfig.coordenadorNome && (
+                      <div className="flex items-start gap-1.5">
+                        <User className="w-3 h-3 mt-0.5 flex-shrink-0 opacity-70" />
+                        <span className="leading-snug">{nucleoConfig.coordenadorNome}</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-xs leading-tight">Escola Teológica das<br />Assembleias de Deus no Brasil</p>
+                )}
               </div>
             </div>
           </div>
@@ -131,6 +184,7 @@ const MainApp = () => {
             {activeTab === 'mensalidade' && <MensalidadeTab />}
             {activeTab === 'chamada' && <ChamadaTab />}
             {activeTab === 'financeiro' && <FinanceiroTab />}
+            {activeTab === 'config' && <ConfigTab onConfigChange={setNucleoConfig} />}
           </div>
         </main>
       </div>
