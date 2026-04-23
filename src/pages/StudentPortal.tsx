@@ -4,12 +4,46 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   LogOut, User, CreditCard, FileText, CheckCircle2, Clock,
   Upload, Trash2, Eye, BookOpen, ChevronRight, GraduationCap, Save,
-  AlertCircle, Check,
+  AlertCircle, Check, Copy, QrCode,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+// ─── PIX utils ───────────────────────────────────────────────────────────────
+const PIX_CNPJ = '40800393000132'; // 40.800.393/0001-32
+const PIX_KEY_DISPLAY = '40.800.393/0001-32';
+const PIX_NAME = 'ESTEADEB ZO';
+const PIX_CITY = 'SAO PAULO';
+
+function crc16ccitt(str: string): string {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function tlv(id: string, value: string): string {
+  return `${id}${value.length.toString().padStart(2, '0')}${value}`;
+}
+
+function generatePixCode(): string {
+  const gui = tlv('00', 'BR.GOV.BCB.PIX');
+  const key = tlv('01', PIX_CNPJ);
+  const merchantInfo = tlv('26', gui + key);
+  const additionalData = tlv('62', tlv('05', '***'));
+  const payload = tlv('00', '01') + merchantInfo + tlv('52', '0000') + tlv('53', '986') +
+    tlv('58', 'BR') + tlv('59', PIX_NAME) + tlv('60', PIX_CITY) + additionalData + '6304';
+  return payload + crc16ccitt(payload);
+}
+
+const PIX_PAYLOAD = generatePixCode();
 
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const mesLabel = (m: string) => { const [y, mo] = m.split('-'); return `${MONTHS[parseInt(mo)-1]} ${y}`; };
@@ -66,6 +100,30 @@ const StudentPortal = () => {
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [nucleoNome, setNucleoNome] = useState('Zona Oeste');
+  const [localAlunoId, setLocalAlunoId] = useState<string | null>(null);
+  const [alunoMatricula, setAlunoMatricula] = useState<string>('');
+  const [pixCopied, setPixCopied] = useState(false);
+
+  const activeAlunoId = localAlunoId || studentId;
+
+  const generateMatricula = async (ano: number): Promise<string> => {
+    const prefix = String(ano);
+    const { data } = await supabase.from('alunos').select('matricula').ilike('matricula', `${prefix}%`);
+    const nums = (data || []).map(r => parseInt((r.matricula || '').replace(prefix, ''), 10)).filter(n => !isNaN(n));
+    const next = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+    return `${prefix}${String(next).padStart(3, '0')}`;
+  };
+
+  const copyPix = async () => {
+    try {
+      await navigator.clipboard.writeText(PIX_KEY_DISPLAY);
+      setPixCopied(true);
+      toast.success('Chave PIX copiada!');
+      setTimeout(() => setPixCopied(false), 2000);
+    } catch {
+      toast.error('Não foi possível copiar');
+    }
+  };
 
   useEffect(() => {
     // Load nucleo config
@@ -75,11 +133,26 @@ const StudentPortal = () => {
     // Load profile
     if (studentAuthId) loadProfile();
     // Load mensalidades
-    if (studentId) loadMensalidades();
+    const alunoId = localAlunoId || studentId;
+    if (alunoId) loadMensalidades(alunoId);
     // Load documents
     if (studentAuthId) loadDocuments();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [studentAuthId, studentId]);
+  }, [studentAuthId, studentId, localAlunoId]);
+
+  // Init localAlunoId from context
+  useEffect(() => {
+    if (studentId && !localAlunoId) setLocalAlunoId(studentId);
+  }, [studentId, localAlunoId]);
+
+  // Load aluno matricula when activeAlunoId changes
+  useEffect(() => {
+    if (activeAlunoId) {
+      supabase.from('alunos').select('matricula').eq('id', activeAlunoId).maybeSingle().then(({ data }) => {
+        if (data?.matricula) setAlunoMatricula(data.matricula);
+      });
+    }
+  }, [activeAlunoId]);
 
   const loadProfile = async () => {
     const { data } = await supabase.from('student_profiles').select('*').eq('auth_user_id', studentAuthId!).maybeSingle();
@@ -93,9 +166,9 @@ const StudentPortal = () => {
     }
   };
 
-  const loadMensalidades = async () => {
+  const loadMensalidades = async (alunoId: string) => {
     setLoadingMens(true);
-    const { data } = await supabase.from('mensalidades').select('*').eq('aluno_id', studentId!).order('mes');
+    const { data } = await supabase.from('mensalidades').select('*').eq('aluno_id', alunoId).order('mes');
     if (data) setMensalidades(data.map(r => ({
       id: r.id, mes: r.mes, situacao: r.situacao,
       dinheiro: Number(r.dinheiro)||0, pixDeposito: Number(r.pix_deposito)||0,
@@ -111,32 +184,55 @@ const StudentPortal = () => {
   };
 
   const saveProfile = async () => {
+    if (!profile.nome_completo.trim()) {
+      toast.error('Preencha o Nome Completo antes de salvar.');
+      return;
+    }
     setSaving(true);
-    const payload = { ...profile, auth_user_id: studentAuthId, aluno_id: studentId, updated_at: new Date().toISOString() };
 
-    let saveError = false;
+    let currentAlunoId = activeAlunoId;
+
+    // 1. Create aluno if not exists yet
+    if (!currentAlunoId) {
+      const { data: newAluno } = await supabase.from('alunos').insert({
+        nome: profile.nome_completo.trim(),
+        ativo: true, tipo_bolsa: '',
+        email: profile.email_contato || '',
+        telefone: profile.telefone || profile.celular1 || '',
+      }).select().maybeSingle();
+      if (newAluno) {
+        currentAlunoId = newAluno.id;
+        setLocalAlunoId(newAluno.id);
+      }
+    } else {
+      // Update existing aluno with latest profile data
+      await supabase.from('alunos').update({
+        nome: profile.nome_completo,
+        telefone: profile.telefone || profile.celular1 || '',
+        email: profile.email_contato || '',
+      }).eq('id', currentAlunoId);
+    }
+
+    // 2. Generate matricula if aluno doesn't have one
+    if (currentAlunoId && !alunoMatricula) {
+      const matricula = await generateMatricula(new Date().getFullYear());
+      await supabase.from('alunos').update({ matricula }).eq('id', currentAlunoId);
+      setAlunoMatricula(matricula);
+      toast.success(`Matrícula gerada: ${matricula}`);
+    }
+
+    // 3. Save to student_profiles
+    const payload = { ...profile, auth_user_id: studentAuthId, aluno_id: currentAlunoId, updated_at: new Date().toISOString() };
     if (profileId) {
       const { error } = await supabase.from('student_profiles').update(payload).eq('id', profileId);
-      if (error) { toast.error('Erro ao salvar'); saveError = true; }
+      if (error) { toast.error('Erro ao salvar ficha'); setSaving(false); return; }
     } else {
       const { data, error } = await supabase.from('student_profiles').insert(payload).select().maybeSingle();
-      if (error) { toast.error('Erro ao salvar'); saveError = true; }
-      else if (data) setProfileId(data.id);
+      if (error) { toast.error('Erro ao salvar ficha'); setSaving(false); return; }
+      if (data) setProfileId(data.id);
     }
 
-    if (!saveError) {
-      // Sincronizar campos relevantes com a tabela alunos
-      if (studentId) {
-        const alunoUpdate: Record<string, string> = {};
-        if (profile.nome_completo) alunoUpdate.nome = profile.nome_completo;
-        if (profile.telefone || profile.celular1) alunoUpdate.telefone = profile.telefone || profile.celular1;
-        if (profile.email_contato) alunoUpdate.email = profile.email_contato;
-        if (Object.keys(alunoUpdate).length > 0) {
-          await supabase.from('alunos').update(alunoUpdate).eq('id', studentId);
-        }
-      }
-      toast.success('Ficha salva e dados atualizados no sistema!');
-    }
+    toast.success('Ficha salva com sucesso!');
     setSaving(false);
   };
 
@@ -156,7 +252,7 @@ const StudentPortal = () => {
     if (existing) {
       await supabase.from('student_documents').update({ nome_arquivo: file.name, url: urlData.publicUrl, storage_path: path, uploaded_at: new Date().toISOString() }).eq('id', existing.id);
     } else {
-      await supabase.from('student_documents').insert({ auth_user_id: studentAuthId, aluno_id: studentId, tipo, nome_arquivo: file.name, url: urlData.publicUrl, storage_path: path });
+      await supabase.from('student_documents').insert({ auth_user_id: studentAuthId, aluno_id: activeAlunoId, tipo, nome_arquivo: file.name, url: urlData.publicUrl, storage_path: path });
     }
     toast.success('Documento enviado!');
     await loadDocuments();
@@ -238,7 +334,9 @@ const StudentPortal = () => {
                 </div>
                 <div>
                   <p className="text-sidebar-text font-medium text-xs leading-tight max-w-[120px] truncate">{studentName || 'Aluno'}</p>
-                  <p className="text-sidebar-muted text-xs">Portal do Aluno</p>
+                  {alunoMatricula
+                    ? <p className="text-xs font-mono" style={{ color: 'hsl(var(--primary))' }}>Mat: {alunoMatricula}</p>
+                    : <p className="text-sidebar-muted text-xs">Portal do Aluno</p>}
                 </div>
               </div>
             </div>
@@ -257,7 +355,11 @@ const StudentPortal = () => {
                   </div>
                   <div>
                     <h1 className="text-xl font-bold text-foreground">Ficha de Matrícula</h1>
-                    <p className="text-sm text-muted-foreground">Preencha seus dados cadastrais</p>
+                    <p className="text-sm text-muted-foreground">
+                      {alunoMatricula
+                        ? <span>Matrícula: <strong className="text-primary">{alunoMatricula}</strong></span>
+                        : 'Preencha seus dados — a matrícula será gerada ao salvar'}
+                    </p>
                   </div>
                 </div>
                 <Button onClick={saveProfile} disabled={saving} className="btn-primary gap-2 h-9">
@@ -403,12 +505,12 @@ const StudentPortal = () => {
                 </div>
               </div>
 
-              {!studentId ? (
+              {!activeAlunoId ? (
                 <div className="content-card p-8 text-center">
                   <AlertCircle className="w-12 h-12 mx-auto mb-3 text-amber-400 opacity-60" />
                   <p className="font-medium text-foreground">Cadastro ainda não vinculado</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Informe sua matrícula ao criar a conta para vincular automaticamente, ou aguarde o coordenador vincular seu cadastro.
+                    Preencha e salve sua Ficha de Matrícula para gerar automaticamente seu número de matrícula e vincular ao sistema.
                   </p>
                 </div>
               ) : loadingMens ? (
@@ -420,6 +522,46 @@ const StudentPortal = () => {
                 </div>
               ) : (
                 <>
+                  {/* PIX Card */}
+                  <div className="content-card p-5">
+                    <div className="flex flex-col sm:flex-row gap-5 items-start">
+                      {/* QR Code */}
+                      <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                        <div className="p-3 bg-white rounded-2xl shadow-sm border border-border">
+                          <QRCodeSVG value={PIX_PAYLOAD} size={140} level="M" />
+                        </div>
+                        <span className="text-xs text-muted-foreground">Escaneie para pagar</span>
+                      </div>
+                      {/* Info */}
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <QrCode className="w-5 h-5 text-primary" />
+                          <h3 className="font-semibold text-foreground text-sm">Pagamento via PIX</h3>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">Tipo de chave: <strong>CNPJ</strong></p>
+                          <p className="text-xs text-muted-foreground">Favorecido: <strong>ESTEADEB NÚCLEO ZONA OESTE</strong></p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1.5">Chave PIX (CNPJ):</p>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-muted/50 border border-border rounded-lg px-3 py-2">
+                              <code className="text-sm font-mono font-bold text-foreground tracking-wide">{PIX_KEY_DISPLAY}</code>
+                            </div>
+                            <Button size="sm" variant="outline" onClick={copyPix}
+                              className={`gap-1.5 h-9 flex-shrink-0 transition-all ${pixCopied ? 'border-emerald-300 text-emerald-600 bg-emerald-50' : ''}`}>
+                              {pixCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              {pixCopied ? 'Copiado!' : 'Copiar'}
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                          Após efetuar o pagamento, informe o comprovante ao coordenador para registro da mensalidade.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Summary cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div className="content-card p-4 bg-emerald-50 border-0">
