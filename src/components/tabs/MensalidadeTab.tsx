@@ -51,6 +51,15 @@ function buildCobrancaWhatsApp(rawPhone: string, nome: string): string {
   return 'https://wa.me/' + phone + '?text=' + lines.map(l => encodeURIComponent(l)).join('%0A');
 }
 
+// Opens WA link from top-level window to avoid iframe ERR_BLOCKED_BY_RESPONSE
+function openWhatsApp(url: string) {
+  try {
+    (window.top || window).open(url, '_blank', 'noopener,noreferrer');
+  } catch (_e) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
 // ─── Month helpers ────────────────────────────────────────────────────────────
 const MONTHS_LABELS = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -358,7 +367,7 @@ const MensalidadeTab = () => {
       description: 'Envie o link da sala de aula via WhatsApp.',
       action: {
         label: 'Abrir WhatsApp',
-        onClick: () => window.open(url, '_blank', 'noopener,noreferrer'),
+        onClick: () => openWhatsApp(url),
       },
       duration: 20000,
     });
@@ -600,13 +609,12 @@ const MensalidadeTab = () => {
                         {!phone && <p className="text-xs text-red-500 italic">Sem telefone cadastrado</p>}
                       </div>
                       {phone ? (
-                        <a href={buildCobrancaWhatsApp(phone, aluno.nome)} target="_blank" rel="noopener noreferrer">
-                          <Button size="sm"
-                            className="gap-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white flex-shrink-0">
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            Enviar
-                          </Button>
-                        </a>
+                        <Button size="sm"
+                          onClick={() => openWhatsApp(buildCobrancaWhatsApp(phone, aluno.nome))}
+                          className="gap-1 h-8 text-xs bg-green-600 hover:bg-green-700 text-white flex-shrink-0">
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          Enviar
+                        </Button>
                       ) : (
                         <Button size="sm" disabled className="gap-1 h-8 text-xs flex-shrink-0">
                           <MessageCircle className="w-3.5 h-3.5" />Sem Tel.

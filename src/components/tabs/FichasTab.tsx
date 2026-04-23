@@ -86,6 +86,15 @@ function buildWhatsAppLink(rawPhone: string, studentName: string): string {
   return 'https://wa.me/' + phone + '?text=' + lines.map(l => encodeURIComponent(l)).join('%0A');
 }
 
+// Opens WA link from top-level window to avoid iframe ERR_BLOCKED_BY_RESPONSE
+function openWhatsApp(url: string) {
+  try {
+    (window.top || window).open(url, '_blank', 'noopener,noreferrer');
+  } catch (_e) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
 const FichasTab = () => {
   const [profiles, setProfiles] = useState<StudentProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -430,14 +439,12 @@ const FichasTab = () => {
                       )}
 
                       {phoneForWA && (
-                        <a href={buildWhatsAppLink(phoneForWA, profile.nome_completo || profile.aluno_nome)}
-                          target="_blank" rel="noopener noreferrer">
-                          <Button variant="outline" size="sm"
-                            className="gap-1 h-7 text-xs px-2 border-green-300 text-green-700 hover:bg-green-50">
-                            <MessageCircle className="w-3 h-3" />
-                            WhatsApp
-                          </Button>
-                        </a>
+                        <Button variant="outline" size="sm"
+                          onClick={() => openWhatsApp(buildWhatsAppLink(phoneForWA, profile.nome_completo || profile.aluno_nome))}
+                          className="gap-1 h-7 text-xs px-2 border-green-300 text-green-700 hover:bg-green-50">
+                          <MessageCircle className="w-3 h-3" />
+                          WhatsApp
+                        </Button>
                       )}
 
                       {confirmDeleteId === profile.id ? (
