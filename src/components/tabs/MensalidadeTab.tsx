@@ -343,14 +343,25 @@ const MensalidadeTab = () => {
   const inadimplentes = alunos.filter(a => a.inadimplente);
 
   // Called when admin confirms Pago status in a row
+  // Uses toast action button (direct click) to avoid browser popup blockers
   const handleSituacaoPago = (aluno: Aluno) => {
+    const firstName = aluno.nome.split(' ')[0];
     if (!aluno.telefone) {
-      toast.info('Pagamento confirmado! Sem telefone cadastrado para enviar WhatsApp.');
+      toast.success(`Pagamento de ${firstName} confirmado!`, {
+        description: 'Sem telefone cadastrado. Nao e possivel enviar WhatsApp.',
+        duration: 6000,
+      });
       return;
     }
     const url = buildClassroomWhatsApp(aluno.telefone, aluno.nome);
-    window.open(url, '_blank', 'noopener,noreferrer');
-    toast.success('Pagamento confirmado! Abrindo WhatsApp para ' + aluno.nome.split(' ')[0] + '...');
+    toast.success(`Pagamento de ${firstName} confirmado!`, {
+      description: 'Envie o link da sala de aula via WhatsApp.',
+      action: {
+        label: 'Abrir WhatsApp',
+        onClick: () => window.open(url, '_blank', 'noopener,noreferrer'),
+      },
+      duration: 20000,
+    });
   };
 
   const openHistory = async (aluno: Aluno) => {
@@ -614,9 +625,10 @@ const MensalidadeTab = () => {
       <div className="content-card p-3 flex items-start gap-3 bg-blue-50 border-blue-200">
         <GraduationCap className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm font-semibold text-blue-800">Confirmacao de Pagamento Automatica</p>
+          <p className="text-sm font-semibold text-blue-800">Envio de link ao confirmar pagamento</p>
           <p className="text-xs text-blue-700 mt-0.5">
-            Ao confirmar o pagamento de um aluno (mudar para <strong>Pago</strong>), o sistema abre automaticamente o WhatsApp com uma mensagem de parabenizacao e o link da sala de aula do Google Classroom.
+            Ao confirmar o pagamento (mudar para <strong>Pago</strong>), um aviso aparece com o botao <strong>"Abrir WhatsApp"</strong>.
+            Clique nele para abrir o WhatsApp com mensagem de parabenizacao e link da sala de aula ja preenchidos.
           </p>
         </div>
       </div>
