@@ -189,7 +189,11 @@ const StudentPortal = () => {
 
   const saveProfile = async () => {
     if (!profile.nome_completo.trim()) {
-      toast.error('Preencha o Nome Completo antes de salvar.');
+      toast.error('Nome Completo é obrigatório.');
+      return;
+    }
+    if (!profile.telefone.trim() && !profile.celular1.trim()) {
+      toast.error('Telefone é obrigatório.');
       return;
     }
     setSaving(true);

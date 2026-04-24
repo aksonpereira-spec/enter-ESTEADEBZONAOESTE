@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Aluno, Turma, Mensalidade } from '@/types/school';
 import { Button } from '@/components/ui/button';
@@ -104,6 +104,7 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
   const [apostilas, setApostilas] = useState<'Sim' | 'Não'>(mensalidade?.apostilas || 'Não');
   const [qtd, setQtd] = useState(mensalidade?.qtdApostilas ? String(mensalidade.qtdApostilas) : '');
   const [situacao, setSituacao] = useState<'Pago' | 'Pendente'>(mensalidade?.situacao || 'Pendente');
+  const [expanded, setExpanded] = useState(false);
   const prevIdRef = useRef(mensalidade?.id);
 
   useEffect(() => {
@@ -170,7 +171,6 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
     if (mensalidade?.id) {
       supabase.from('mensalidades').update({ situacao: val }).eq('id', mensalidade.id);
     }
-    // Auto-send classroom link when confirming payment
     if (val === 'Pago' && wasNotPago) {
       onSituacaoPago(aluno);
     }
@@ -178,92 +178,118 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
 
   const total = calcTotal();
   const isPago = situacao === 'Pago';
+  const hasObs = obs.trim().length > 0;
+  const hasApostilas = apostilas === 'Sim';
 
   return (
-    <tr className="table-row">
-      <td className="table-td">
-        <button onClick={() => onOpenHistory(aluno)} className="flex items-center gap-2 group text-left w-full">
-          <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold transition-all group-hover:ring-2 group-hover:ring-primary/30 ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-500'}`}>
-            {aluno.nome.charAt(0)}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[140px]">{aluno.nome}</p>
-            {aluno.matricula && <p className="text-xs text-muted-foreground">{aluno.matricula}</p>}
-          </div>
-          <History className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
-        </button>
-      </td>
-      <td className="table-td hidden sm:table-cell">
-        <Input type="number" min="0" step="0.01" placeholder="0,00"
-          className="h-8 text-right text-xs form-input w-24"
-          value={dinheiro}
-          onChange={e => setDinheiro(e.target.value)}
-          onBlur={e => handleNumBlur('dinheiro', e.target.value)} />
-      </td>
-      <td className="table-td hidden sm:table-cell">
-        <Input type="number" min="0" step="0.01" placeholder="0,00"
-          className="h-8 text-right text-xs form-input w-24"
-          value={pix}
-          onChange={e => setPix(e.target.value)}
-          onBlur={e => handleNumBlur('pix_deposito', e.target.value)} />
-      </td>
-      <td className="table-td hidden md:table-cell">
-        <Input type="number" min="0" step="0.01" placeholder="0,00"
-          className="h-8 text-right text-xs form-input w-24"
-          value={cartAss}
-          onChange={e => setCartAss(e.target.value)}
-          onBlur={e => handleNumBlur('cartao_assinatura', e.target.value)} />
-      </td>
-      <td className="table-td hidden md:table-cell">
-        <Input type="number" min="0" step="0.01" placeholder="0,00"
-          className="h-8 text-right text-xs form-input w-24"
-          value={cartDeb}
-          onChange={e => setCartDeb(e.target.value)}
-          onBlur={e => handleNumBlur('cartao_debito', e.target.value)} />
-      </td>
-      <td className="table-td text-right">
-        <span className={`font-bold text-sm ${total > 0 ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-          {total > 0 ? `R$\u00a0${total.toFixed(2).replace('.', ',')}` : '\u2014'}
-        </span>
-      </td>
-      <td className="table-td text-center">
-        <Select value={situacao} onValueChange={handleSituacaoOverride}>
-          <SelectTrigger className={`h-7 text-xs font-semibold border-0 rounded-full px-3 w-[100px] mx-auto ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-500'}`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Pago">Pago</SelectItem>
-            <SelectItem value="Pendente">Pendente</SelectItem>
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="table-td hidden lg:table-cell">
-        <Select value={apostilas} onValueChange={handleApostilas}>
-          <SelectTrigger className="h-8 text-xs form-input w-20"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Não">Não</SelectItem>
-            <SelectItem value="Sim">Sim</SelectItem>
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="table-td hidden lg:table-cell">
-        <Input type="number" min="0" step="1" placeholder="0"
-          className="h-8 text-center text-xs form-input w-14"
-          value={qtd}
-          disabled={apostilas === 'Não'}
-          onChange={e => setQtd(e.target.value)}
-          onBlur={e => upsert({ qtd_apostilas: parseInt(e.target.value) || 0, apostilas })} />
-      </td>
-      <td className="table-td hidden xl:table-cell">
-        <Input placeholder="Obs..."
-          className="h-8 text-xs form-input"
-          value={obs}
-          onChange={e => setObs(e.target.value)}
-          onBlur={() => upsert({ obs })} />
-      </td>
-    </tr>
+    <Fragment>
+      <tr className="table-row">
+        <td className="table-td">
+          <button onClick={() => onOpenHistory(aluno)} className="flex items-center gap-2 group text-left w-full">
+            <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold transition-all group-hover:ring-2 group-hover:ring-primary/30 ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-500'}`}>
+              {aluno.nome.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate max-w-[140px]">{aluno.nome}</p>
+              {aluno.matricula && <p className="text-xs text-muted-foreground">{aluno.matricula}</p>}
+            </div>
+            <History className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          </button>
+        </td>
+        <td className="table-td hidden sm:table-cell">
+          <Input type="number" min="0" step="0.01" placeholder="0,00"
+            className="h-8 text-right text-xs form-input w-24"
+            value={dinheiro}
+            onChange={e => setDinheiro(e.target.value)}
+            onBlur={e => handleNumBlur('dinheiro', e.target.value)} />
+        </td>
+        <td className="table-td hidden sm:table-cell">
+          <Input type="number" min="0" step="0.01" placeholder="0,00"
+            className="h-8 text-right text-xs form-input w-24"
+            value={pix}
+            onChange={e => setPix(e.target.value)}
+            onBlur={e => handleNumBlur('pix_deposito', e.target.value)} />
+        </td>
+        <td className="table-td hidden md:table-cell">
+          <Input type="number" min="0" step="0.01" placeholder="0,00"
+            className="h-8 text-right text-xs form-input w-24"
+            value={cartAss}
+            onChange={e => setCartAss(e.target.value)}
+            onBlur={e => handleNumBlur('cartao_assinatura', e.target.value)} />
+        </td>
+        <td className="table-td hidden md:table-cell">
+          <Input type="number" min="0" step="0.01" placeholder="0,00"
+            className="h-8 text-right text-xs form-input w-24"
+            value={cartDeb}
+            onChange={e => setCartDeb(e.target.value)}
+            onBlur={e => handleNumBlur('cartao_debito', e.target.value)} />
+        </td>
+        <td className="table-td text-right">
+          <span className={`font-bold text-sm ${total > 0 ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+            {total > 0 ? `R$\u00a0${total.toFixed(2).replace('.', ',')}` : '\u2014'}
+          </span>
+        </td>
+        <td className="table-td text-center">
+          <Select value={situacao} onValueChange={handleSituacaoOverride}>
+            <SelectTrigger className={`h-7 text-xs font-semibold border-0 rounded-full px-3 w-[100px] mx-auto ${isPago ? 'bg-emerald-100 text-emerald-700' : 'bg-red-50 text-red-500'}`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Pago">Pago</SelectItem>
+              <SelectItem value="Pendente">Pendente</SelectItem>
+            </SelectContent>
+          </Select>
+        </td>
+        <td className="table-td w-8 text-center">
+          <button
+            onClick={() => setExpanded(e => !e)}
+            title="Ver observações e apostilas"
+            className={`p-1 rounded-full transition-all ${expanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/60'} ${(hasObs || hasApostilas) ? 'ring-1 ring-amber-300' : ''}`}>
+            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="bg-muted/20 border-t border-dashed border-border/50">
+          <td colSpan={8} className="px-4 py-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground whitespace-nowrap font-medium">Apostilas:</label>
+                <Select value={apostilas} onValueChange={handleApostilas}>
+                  <SelectTrigger className="h-8 text-xs form-input w-20"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Não">Não</SelectItem>
+                    <SelectItem value="Sim">Sim</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {apostilas === 'Sim' && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-muted-foreground font-medium">Qtd:</label>
+                  <Input type="number" min="0" step="1" placeholder="0"
+                    className="h-8 text-center text-xs form-input w-16"
+                    value={qtd}
+                    onChange={e => setQtd(e.target.value)}
+                    onBlur={e => upsert({ qtd_apostilas: parseInt(e.target.value) || 0, apostilas })} />
+                </div>
+              )}
+              <div className="flex items-center gap-2 flex-1 min-w-[220px]">
+                <label className="text-xs text-muted-foreground whitespace-nowrap font-medium">Observações:</label>
+                <Input
+                  placeholder="Adicione uma observação..."
+                  className="h-8 text-xs form-input flex-1"
+                  value={obs}
+                  onChange={e => setObs(e.target.value)}
+                  onBlur={e => upsert({ obs: e.target.value })} />
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </Fragment>
   );
 };
+
 
 // ─── History ──────────────────────────────────────────────────────────────────
 interface PaymentHistory {
@@ -699,10 +725,8 @@ const MensalidadeTab = () => {
                   <th className="table-th text-right hidden md:table-cell">Cart.Ass</th>
                   <th className="table-th text-right hidden md:table-cell">Cart.Deb</th>
                   <th className="table-th text-right">Total</th>
-                  <th className="table-th text-center">Situacao</th>
-                  <th className="table-th text-center hidden lg:table-cell">Apostilas</th>
-                  <th className="table-th text-center hidden lg:table-cell">Qtd</th>
-                  <th className="table-th text-left hidden xl:table-cell">Obs</th>
+                  <th className="table-th text-center">Situação</th>
+                  <th className="table-th w-8" title="Observações / Apostilas"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

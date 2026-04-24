@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   BarChart3, TrendingUp, DollarSign, RefreshCw, Filter,
-  AlertCircle, ChevronDown, ChevronUp, Users, BookOpen, Percent,
+  AlertCircle, ChevronDown, ChevronUp, Users, BookOpen, Percent, FileSpreadsheet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -40,11 +40,25 @@ interface FinanceRow {
   totalApostilas: number;
 }
 
+interface DiscHonorario {
+  turmaId: string; turmaName: string; moduloNome: string;
+  nome: string; professor: string; honorario: number;
+}
+
+interface MensalidadeExport {
+  matricula: string; nome: string; turma: string;
+  situacao: string; dinheiro: number; pix: number;
+  cartAss: number; cartDeb: number; total: number;
+  apostilas: string; qtdApostilas: number; obs: string;
+}
+
 const FinanceiroTab = () => {
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [finance, setFinance] = useState<FinanceRow | null>(null);
+  const [discHonorarios, setDiscHonorarios] = useState<DiscHonorario[]>([]);
+  const [mensalidadesExport, setMensalidadesExport] = useState<MensalidadeExport[]>([]);
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -54,9 +68,8 @@ const FinanceiroTab = () => {
   const [showTaxaInfo, setShowTaxaInfo] = useState(false);
   const monthOptions = getMonthOptions();
 
-  // Taxa cartão
-  const TAXA_ASSINATURA = 0.05; // 5%
-  const TAXA_DEBITO = 0.02;    // 2%
+  const TAXA_ASSINATURA = 0.05;
+  const TAXA_DEBITO = 0.02;
 
   const loadData = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -64,7 +77,7 @@ const FinanceiroTab = () => {
     const [tRes, mRes, aRes] = await Promise.all([
       supabase.from('classes').select('*').order('nome'),
       supabase.from('mensalidades').select('*').eq('mes', selectedMonth),
-      supabase.from('alunos').select('id, turma_id').eq('ativo', true),
+      supabase.from('alunos').select('id, nome, matricula, turma_id').eq('ativo', true),
     ]);
 
     if (tRes.error || mRes.error) {
@@ -72,12 +85,38 @@ const FinanceiroTab = () => {
       setLoading(false); return;
     }
 
-    if (tRes.data) setTurmas(tRes.data.map(r => ({
+    const allTurmas = (tRes.data || []).map(r => ({
       id: r.id, nome: r.nome, turno: r.turno as 'Manhã'|'Tarde'|'Noite',
       disciplina: r.disciplina ?? '', professor: r.professor ?? '',
       diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '',
       honorario: Number(r.honorario) || 0, createdAt: r.created_at,
-    })));
+    }));
+    setTurmas(allTurmas);
+
+    // Load disciplines honorários
+    const turmaIds = selectedTurma === 'all'
+      ? allTurmas.map(t => t.id)
+      : [selectedTurma];
+
+    const { data: modsData } = await supabase
+      .from('modulos')
+      .select('id, nome, turma_id, disciplinas_turma(id, nome, professor, honorario)')
+      .in('turma_id', turmaIds);
+
+    const discs: DiscHonorario[] = [];
+    (modsData || []).forEach(mod => {
+      const turma = allTurmas.find(t => t.id === mod.turma_id);
+      ((mod.disciplinas_turma as { id: string; nome: string; professor: string; honorario: number }[]) || []).forEach(d => {
+        if ((Number(d.honorario) || 0) > 0) {
+          discs.push({
+            turmaId: mod.turma_id, turmaName: turma?.nome || '—',
+            moduloNome: mod.nome, nome: d.nome, professor: d.professor || '—',
+            honorario: Number(d.honorario) || 0,
+          });
+        }
+      });
+    });
+    setDiscHonorarios(discs);
 
     const allAlunos = aRes.data || [];
     const filteredAlunoIds = selectedTurma === 'all'
@@ -91,6 +130,30 @@ const FinanceiroTab = () => {
     let cartAssTotal = 0, cartAssQtd = 0;
     let cartDebTotal = 0, cartDebQtd = 0;
     let totalApostilas = 0;
+
+    // Build export data
+    const alunoMap = Object.fromEntries(allAlunos.map((a: { id: string; nome: string; matricula: string | null; turma_id: string | null }) => [a.id, a]));
+    const turmaMap = Object.fromEntries(allTurmas.map(t => [t.id, t]));
+    const exportRows: MensalidadeExport[] = filteredAlunoIds.map(alunoId => {
+      const aluno = alunoMap[alunoId];
+      const m = mensalidades.find(x => x.aluno_id === alunoId);
+      const turma = aluno?.turma_id ? turmaMap[aluno.turma_id] : null;
+      return {
+        matricula: aluno?.matricula || '',
+        nome: aluno?.nome || '',
+        turma: turma?.nome || '—',
+        situacao: m?.situacao || 'Pendente',
+        dinheiro: Number(m?.dinheiro) || 0,
+        pix: Number(m?.pix_deposito) || 0,
+        cartAss: Number(m?.cartao_assinatura) || 0,
+        cartDeb: Number(m?.cartao_debito) || 0,
+        total: Number(m?.valor) || 0,
+        apostilas: m?.apostilas || 'Não',
+        qtdApostilas: Number(m?.qtd_apostilas) || 0,
+        obs: m?.obs || '',
+      };
+    });
+    setMensalidadesExport(exportRows);
 
     mensalidades.forEach(m => {
       const d = Number(m.dinheiro) || 0;
@@ -123,19 +186,12 @@ const FinanceiroTab = () => {
   useEffect(() => { loadData(); }, [loadData]);
 
   const comissao = finance ? finance.totalLiquido * (parseFloat(commissaoPerc) / 100) : 0;
-
   const turmasFiltradas = selectedTurma === 'all' ? turmas : turmas.filter(t => t.id === selectedTurma);
-  const totalHonorarios = turmasFiltradas.reduce((s, t) => s + t.honorario, 0);
+  const totalHonorarios = discHonorarios.reduce((s, d) => s + d.honorario, 0);
 
-  const handleHonorario = async (turmaId: string, val: string) => {
-    const { error } = await supabase.from('classes').update({ honorario: parseFloat(val) || 0 }).eq('id', turmaId);
-    if (error) toast.error('Erro ao salvar');
-    else {
-      setTurmas(prev => prev.map(t => t.id === turmaId ? { ...t, honorario: parseFloat(val) || 0 } : t));
-      toast.success('Honorário salvo');
-    }
-  };
+  const fmt = (v: number) => `R$ ${v.toFixed(2).replace('.',',')}`;
 
+  // ─── PDF Export ───────────────────────────────────────────────────────────────
   const exportPDF = async () => {
     if (!finance) return;
     const { default: jsPDF } = await import('jspdf');
@@ -159,14 +215,13 @@ const FinanceiroTab = () => {
     const rows = [
       ['Dinheiro', `R$ ${finance.dinheiroTotal.toFixed(2).replace('.',',')}`, String(finance.dinheiroQtd), '—', `R$ ${finance.dinheiroTotal.toFixed(2).replace('.',',')}`],
       ['Pix / Dep. / Transf.', `R$ ${finance.pixTotal.toFixed(2).replace('.',',')}`, String(finance.pixQtd), '—', `R$ ${finance.pixTotal.toFixed(2).replace('.',',')}`],
-      [`Cartão Assinatura (-${(TAXA_ASSINATURA*100).toFixed(1)}%)`, `R$ ${finance.cartAssTotal.toFixed(2).replace('.',',')}`, String(finance.cartAssQtd), `- R$ ${(finance.cartAssTotal*TAXA_ASSINATURA).toFixed(2).replace('.',',')}`, `R$ ${finance.cartAssLiq.toFixed(2).replace('.',',')}`],
-      [`Cartão Débito (-${(TAXA_DEBITO*100).toFixed(1)}%)`, `R$ ${finance.cartDebTotal.toFixed(2).replace('.',',')}`, String(finance.cartDebQtd), `- R$ ${(finance.cartDebTotal*TAXA_DEBITO).toFixed(2).replace('.',',')}`, `R$ ${finance.cartDebLiq.toFixed(2).replace('.',',')}`],
+      [`Cartao Assinatura (-${(TAXA_ASSINATURA*100).toFixed(1)}%)`, `R$ ${finance.cartAssTotal.toFixed(2).replace('.',',')}`, String(finance.cartAssQtd), `- R$ ${(finance.cartAssTotal*TAXA_ASSINATURA).toFixed(2).replace('.',',')}`, `R$ ${finance.cartAssLiq.toFixed(2).replace('.',',')}`],
+      [`Cartao Debito (-${(TAXA_DEBITO*100).toFixed(1)}%)`, `R$ ${finance.cartDebTotal.toFixed(2).replace('.',',')}`, String(finance.cartDebQtd), `- R$ ${(finance.cartDebTotal*TAXA_DEBITO).toFixed(2).replace('.',',')}`, `R$ ${finance.cartDebLiq.toFixed(2).replace('.',',')}`],
     ];
 
     doc.setFillColor(30,64,175); doc.rect(15,y,180,7,'F');
     doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
-    doc.text('Forma',17,y+5); doc.text('Bruto',75,y+5); doc.text('Qtd',105,y+5); doc.text('Taxa',125,y+5); doc.text('Líquido',165,y+5); y+=7;
-
+    doc.text('Forma',17,y+5); doc.text('Bruto',75,y+5); doc.text('Qtd',105,y+5); doc.text('Taxa',125,y+5); doc.text('Liquido',165,y+5); y+=7;
     doc.setTextColor(0,0,0);
     rows.forEach((r, i) => {
       doc.setFillColor(i%2===0?255:248); doc.rect(15,y,180,7,'F');
@@ -177,40 +232,103 @@ const FinanceiroTab = () => {
     y+=3;
     doc.setFillColor(15,40,120); doc.rect(15,y,180,8,'F');
     doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
-    doc.text('TOTAL LÍQUIDO (após taxas)',17,y+5.5);
+    doc.text('TOTAL LIQUIDO (apos taxas)',17,y+5.5);
     doc.text(`R$ ${finance.totalLiquido.toFixed(2).replace('.',',')}`,165,y+5.5); y+=8;
 
     y+=5;
     doc.setTextColor(0,0,0); doc.setFontSize(11); doc.setFont('helvetica','bold');
-    doc.text('COMISSÃO DE COORDENAÇÃO', 15, y); y+=8;
+    doc.text('COMISSAO DE COORDENACAO', 15, y); y+=8;
     doc.setFontSize(9); doc.setFont('helvetica','normal');
-    doc.text(`Percentual: ${commissaoPerc}% sobre total líquido (R$ ${finance.totalLiquido.toFixed(2).replace('.',',')})`,15,y); y+=7;
+    doc.text(`Percentual: ${commissaoPerc}% sobre total liquido (R$ ${finance.totalLiquido.toFixed(2).replace('.',',')})`,15,y); y+=7;
     doc.setFillColor(16,185,129); doc.rect(15,y,180,8,'F');
     doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont('helvetica','bold');
-    doc.text(`Comissão do Coordenador: R$ ${commissaoVal.toFixed(2).replace('.',',')}`,15,y+5.5); y+=8;
+    doc.text(`Comissao do Coordenador: R$ ${commissaoVal.toFixed(2).replace('.',',')}`,15,y+5.5); y+=8;
 
-    if (turmasFiltradas.some(t => t.honorario > 0)) {
+    if (discHonorarios.length > 0) {
       y+=5;
       doc.setTextColor(0,0,0); doc.setFontSize(11); doc.setFont('helvetica','bold');
-      doc.text('HONORÁRIOS DOS PROFESSORES', 15, y); y+=8;
+      doc.text('HONORARIOS DOS PROFESSORES', 15, y); y+=8;
       doc.setFillColor(30,64,175); doc.rect(15,y,180,7,'F');
       doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
-      doc.text('Turma / Disciplina',17,y+5); doc.text('Professor',100,y+5); doc.text('Honorário',165,y+5); y+=7;
+      doc.text('Turma / Modulo',17,y+5); doc.text('Disciplina',80,y+5); doc.text('Professor',130,y+5); doc.text('Honorario',170,y+5); y+=7;
       doc.setTextColor(0,0,0);
-      turmasFiltradas.filter(t=>t.honorario>0).forEach((t,i) => {
+      discHonorarios.forEach((d,i) => {
+        if (y > 270) { doc.addPage(); y = 15; }
         doc.setFillColor(i%2===0?255:248); doc.rect(15,y,180,6.5,'F');
-        doc.setFontSize(8); doc.setFont('helvetica','normal');
-        doc.text(`${t.nome} — ${t.disciplina||'—'}`,17,y+4.5);
-        doc.text(t.professor||'—',100,y+4.5);
-        doc.text(`R$ ${t.honorario.toFixed(2).replace('.',',')}`,165,y+4.5); y+=6.5;
+        doc.setFontSize(7.5); doc.setFont('helvetica','normal');
+        doc.text(`${d.turmaName} — ${d.moduloNome}`.substring(0,35),17,y+4.5);
+        doc.text(d.nome.substring(0,25),80,y+4.5);
+        doc.text(d.professor.substring(0,20),130,y+4.5);
+        doc.text(`R$ ${d.honorario.toFixed(2).replace('.',',')}`,170,y+4.5); y+=6.5;
       });
+      y+=3;
+      doc.setFillColor(15,40,120); doc.rect(15,y,180,7,'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
+      doc.text('TOTAL HONORARIOS',17,y+5);
+      doc.text(`R$ ${totalHonorarios.toFixed(2).replace('.',',')}`,170,y+5);
     }
 
     doc.save(`Financeiro_${mesLab.replace(' ','_')}.pdf`);
     toast.success('Relatório financeiro gerado!');
   };
 
-  const fmt = (v: number) => `R$ ${v.toFixed(2).replace('.',',')}`;
+  // ─── Excel Export ─────────────────────────────────────────────────────────────
+  const exportExcel = async () => {
+    if (!finance) return;
+    const XLSX = await import('xlsx');
+    const wb = XLSX.utils.book_new();
+    const mesLab = mesLabel(selectedMonth);
+
+    // Sheet 1: Resumo
+    const resumoData = [
+      ['RESUMO FINANCEIRO — ' + mesLab],
+      [],
+      ['Forma de Pagamento', 'Valor Bruto', 'Qtd', 'Taxa', 'Valor Líquido'],
+      ['Dinheiro', finance.dinheiroTotal, finance.dinheiroQtd, 0, finance.dinheiroTotal],
+      ['Pix / Depósito / Transferência', finance.pixTotal, finance.pixQtd, 0, finance.pixTotal],
+      [`Cartão Assinatura (-${(TAXA_ASSINATURA*100).toFixed(1)}%)`, finance.cartAssTotal, finance.cartAssQtd, -(finance.cartAssTotal*TAXA_ASSINATURA), finance.cartAssLiq],
+      [`Cartão Débito (-${(TAXA_DEBITO*100).toFixed(1)}%)`, finance.cartDebTotal, finance.cartDebQtd, -(finance.cartDebTotal*TAXA_DEBITO), finance.cartDebLiq],
+      [],
+      ['TOTAL BRUTO', finance.totalBruto, '', '', ''],
+      ['TOTAL LÍQUIDO', finance.totalLiquido, '', '', ''],
+      [],
+      ['Comissão Coordenador (' + commissaoPerc + '%)', comissao],
+      ['Total Honorários Professores', totalHonorarios],
+      [],
+      ['Alunos Ativos', finance.totalAlunos],
+      ['Alunos Pagos', finance.totalPagos],
+      ['Total Apostilas', finance.totalApostilas],
+    ];
+    if (discHonorarios.length > 0) {
+      resumoData.push([]);
+      resumoData.push(['HONORÁRIOS POR DISCIPLINA', '', '', '']);
+      resumoData.push(['Turma', 'Módulo', 'Disciplina', 'Professor', 'Honorário']);
+      discHonorarios.forEach(d => resumoData.push([d.turmaName, d.moduloNome, d.nome, d.professor, d.honorario]));
+    }
+    const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
+    XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
+
+    // Sheet 2: Mensalidades por Aluno
+    const mensHeader = ['Matrícula', 'Nome', 'Turma', 'Situação', 'Dinheiro (R$)', 'Pix/Dep. (R$)', 'Cart. Ass. (R$)', 'Cart. Déb. (R$)', 'Total (R$)', 'Apostilas', 'Qtd Apostilas', 'Observações'];
+    const mensRows = mensalidadesExport.map(r => [
+      r.matricula, r.nome, r.turma, r.situacao,
+      r.dinheiro, r.pix, r.cartAss, r.cartDeb, r.total,
+      r.apostilas, r.qtdApostilas, r.obs,
+    ]);
+    const wsMens = XLSX.utils.aoa_to_sheet([mensHeader, ...mensRows]);
+    XLSX.utils.book_append_sheet(wb, wsMens, 'Mensalidades');
+
+    // Sheet 3: Apostilas
+    const apostHeader = ['Matrícula', 'Nome', 'Turma', 'Mês', 'Qtd Apostilas'];
+    const apostRows = mensalidadesExport
+      .filter(r => r.apostilas === 'Sim' && r.qtdApostilas > 0)
+      .map(r => [r.matricula, r.nome, r.turma, mesLab, r.qtdApostilas]);
+    const wsApost = XLSX.utils.aoa_to_sheet([apostHeader, ...apostRows]);
+    XLSX.utils.book_append_sheet(wb, wsApost, 'Apostilas');
+
+    XLSX.writeFile(wb, `Financeiro_${mesLab.replace(' ','_')}.xlsx`);
+    toast.success('Planilha Excel gerada!');
+  };
 
   return (
     <div className="space-y-5">
@@ -234,9 +352,14 @@ const FinanceiroTab = () => {
           <Button variant="outline" size="sm" onClick={loadData} className="gap-1.5 h-9">
             <RefreshCw className="w-3.5 h-3.5" />Atualizar
           </Button>
-          <Button size="sm" onClick={exportPDF} disabled={!finance} className="gap-1.5 h-9 ml-auto">
-            <BarChart3 className="w-3.5 h-3.5" />Exportar PDF Financeiro
-          </Button>
+          <div className="flex gap-2 ml-auto flex-wrap">
+            <Button size="sm" onClick={exportPDF} disabled={!finance} className="gap-1.5 h-9">
+              <BarChart3 className="w-3.5 h-3.5" />PDF Financeiro
+            </Button>
+            <Button size="sm" variant="outline" onClick={exportExcel} disabled={!finance} className="gap-1.5 h-9 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+              <FileSpreadsheet className="w-3.5 h-3.5" />Excel Detalhado
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -315,9 +438,7 @@ const FinanceiroTab = () => {
                     { label: `Cartão Débito (-${(TAXA_DEBITO*100).toFixed(1)}%)`, bruto: finance.cartDebTotal, qtd: finance.cartDebQtd, taxa: finance.cartDebTotal*TAXA_DEBITO, liq: finance.cartDebLiq, color: 'text-indigo-600' },
                   ].map(row => (
                     <tr key={row.label} className="table-row">
-                      <td className="table-td">
-                        <span className="text-sm font-medium text-foreground">{row.label}</span>
-                      </td>
+                      <td className="table-td"><span className="text-sm font-medium text-foreground">{row.label}</span></td>
                       <td className="table-td text-right">
                         <span className={`font-semibold text-sm ${row.bruto > 0 ? row.color : 'text-muted-foreground'}`}>
                           {row.bruto > 0 ? fmt(row.bruto) : '—'}
@@ -329,14 +450,10 @@ const FinanceiroTab = () => {
                         </span>
                       </td>
                       <td className="table-td text-right hidden sm:table-cell">
-                        {row.taxa > 0
-                          ? <span className="text-xs text-red-500 font-medium">- {fmt(row.taxa)}</span>
-                          : <span className="text-xs text-muted-foreground">—</span>}
+                        {row.taxa > 0 ? <span className="text-xs text-red-500 font-medium">- {fmt(row.taxa)}</span> : <span className="text-xs text-muted-foreground">—</span>}
                       </td>
                       <td className="table-td text-right">
-                        <span className="font-bold text-sm text-foreground">
-                          {row.liq > 0 ? fmt(row.liq) : '—'}
-                        </span>
+                        <span className="font-bold text-sm text-foreground">{row.liq > 0 ? fmt(row.liq) : '—'}</span>
                       </td>
                     </tr>
                   ))}
@@ -365,87 +482,64 @@ const FinanceiroTab = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex items-center gap-3">
                 <label className="text-sm text-muted-foreground whitespace-nowrap">Percentual (%):</label>
-                <Input
-                  type="number" min="0" max="100" step="0.5"
+                <Input type="number" min="0" max="100" step="0.5"
                   className="h-9 w-24 form-input text-center font-bold"
-                  value={commissaoPerc}
-                  onChange={e => setComissaoPerc(e.target.value)}
-                />
+                  value={commissaoPerc} onChange={e => setComissaoPerc(e.target.value)} />
               </div>
               <div className="flex gap-4 flex-wrap">
                 <div className="content-card p-3 bg-muted/40 border-0 flex items-center gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Base (Total Líquido)</p>
-                    <p className="font-bold text-foreground">{fmt(finance.totalLiquido)}</p>
-                  </div>
+                  <div><p className="text-xs text-muted-foreground">Base (Total Líquido)</p><p className="font-bold text-foreground">{fmt(finance.totalLiquido)}</p></div>
                 </div>
                 <div className="content-card p-3 bg-emerald-50 border-0 flex items-center gap-3">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Comissão ({commissaoPerc}%)</p>
-                    <p className="font-bold text-emerald-600 text-xl">{fmt(comissao)}</p>
-                  </div>
+                  <div><p className="text-xs text-muted-foreground">Comissão ({commissaoPerc}%)</p><p className="font-bold text-emerald-600 text-xl">{fmt(comissao)}</p></div>
                 </div>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              Fórmula: R$ {finance.totalLiquido.toFixed(2).replace('.',',')} × {commissaoPerc}% = <strong className="text-foreground">R$ {comissao.toFixed(2).replace('.',',')}</strong>
-            </p>
           </div>
 
-          {/* Honorários professores */}
+          {/* Honorários dos professores por disciplina */}
           <div className="content-card overflow-hidden">
             <div className="px-4 py-3 border-b border-border bg-muted/20">
               <p className="font-semibold text-foreground flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />Honorários dos Professores
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">Defina o valor de honorário por turma/disciplina</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Valores definidos por disciplina nas turmas</p>
             </div>
-            {turmas.length === 0 ? (
+            {discHonorarios.length === 0 ? (
               <div className="empty-state py-8">
                 <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Nenhuma turma cadastrada</p>
+                <p className="text-sm">Nenhum honorário cadastrado nas disciplinas</p>
+                <p className="text-xs text-muted-foreground mt-1">Acesse a aba Turmas → Módulos para definir honorários por disciplina</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="table-head">
-                      <th className="table-th text-left">Turma / Disciplina</th>
-                      <th className="table-th text-left hidden sm:table-cell">Professor</th>
-                      <th className="table-th text-left hidden md:table-cell">Turno</th>
-                      <th className="table-th text-right">Honorário R$</th>
+                      <th className="table-th text-left">Turma</th>
+                      <th className="table-th text-left hidden sm:table-cell">Módulo</th>
+                      <th className="table-th text-left">Disciplina</th>
+                      <th className="table-th text-left hidden md:table-cell">Professor</th>
+                      <th className="table-th text-right">Honorário</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {turmas.map(t => (
-                      <tr key={t.id} className="table-row">
+                    {discHonorarios.map((d, i) => (
+                      <tr key={i} className="table-row">
                         <td className="table-td">
-                          <p className="font-medium text-sm text-foreground">{t.nome}</p>
-                          {t.disciplina && <p className="text-xs text-muted-foreground">{t.disciplina}</p>}
+                          <p className="font-medium text-sm text-foreground">{d.turmaName}</p>
                         </td>
-                        <td className="table-td hidden sm:table-cell text-sm text-muted-foreground">{t.professor || '—'}</td>
-                        <td className="table-td hidden md:table-cell">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
-                            ${t.turno==='Manhã' ? 'bg-amber-100 text-amber-700' : t.turno==='Tarde' ? 'bg-orange-100 text-orange-700' : 'bg-indigo-100 text-indigo-700'}`}>
-                            {t.turno}
-                          </span>
-                        </td>
-                        <td className="table-td text-right">
-                          <Input
-                            type="number" min="0" step="10"
-                            className="h-8 text-right text-sm form-input w-28 ml-auto"
-                            defaultValue={t.honorario || ''}
-                            placeholder="0,00"
-                            onBlur={e => handleHonorario(t.id, e.target.value)}
-                          />
-                        </td>
+                        <td className="table-td hidden sm:table-cell text-sm text-muted-foreground">{d.moduloNome}</td>
+                        <td className="table-td text-sm text-foreground">{d.nome}</td>
+                        <td className="table-td hidden md:table-cell text-sm text-muted-foreground">{d.professor}</td>
+                        <td className="table-td text-right font-semibold text-emerald-600">{fmt(d.honorario)}</td>
                       </tr>
                     ))}
                   </tbody>
                   {totalHonorarios > 0 && (
                     <tfoot>
                       <tr className="bg-primary/5">
-                        <td colSpan={3} className="table-td font-bold text-foreground">Total Honorários</td>
+                        <td colSpan={4} className="table-td font-bold text-foreground">Total Honorários</td>
                         <td className="table-td text-right font-bold text-primary">{fmt(totalHonorarios)}</td>
                       </tr>
                     </tfoot>
@@ -454,6 +548,15 @@ const FinanceiroTab = () => {
               </div>
             )}
           </div>
+
+          {/* Turmas overview */}
+          {turmasFiltradas.length > 0 && (
+            <div className="content-card p-4 bg-muted/20">
+              <p className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
+                <BarChart3 className="w-3.5 h-3.5" />Resumo — {turmasFiltradas.length} turma{turmasFiltradas.length !== 1 ? 's' : ''} | Total honorários: <span className="text-primary font-bold">{fmt(totalHonorarios)}</span>
+              </p>
+            </div>
+          )}
         </>
       )}
     </div>

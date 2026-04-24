@@ -1,0 +1,30 @@
+-- Add new columns to classes table
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS data_aula DATE;
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS horario TEXT DEFAULT '';
+
+-- Modules table
+CREATE TABLE IF NOT EXISTS modulos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  turma_id UUID REFERENCES classes(id) ON DELETE CASCADE NOT NULL,
+  nome TEXT NOT NULL DEFAULT '',
+  ordem INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE modulos ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_modulos" ON modulos;
+CREATE POLICY "allow_all_modulos" ON modulos FOR ALL USING (true) WITH CHECK (true);
+
+-- Disciplines table
+CREATE TABLE IF NOT EXISTS disciplinas_turma (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  modulo_id UUID REFERENCES modulos(id) ON DELETE CASCADE NOT NULL,
+  numero INT DEFAULT 1,
+  nome TEXT NOT NULL DEFAULT '',
+  professor TEXT DEFAULT '',
+  honorario NUMERIC(10,2) DEFAULT 0,
+  horario TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE disciplinas_turma ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_disciplinas" ON disciplinas_turma;
+CREATE POLICY "allow_all_disciplinas" ON disciplinas_turma FOR ALL USING (true) WITH CHECK (true);

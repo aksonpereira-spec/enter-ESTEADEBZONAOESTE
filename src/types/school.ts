@@ -10,6 +10,24 @@ export interface NucleoConfig {
   ano: number;
 }
 
+export interface DisciplinaTurma {
+  id: string;
+  moduloId: string;
+  numero: number;
+  nome: string;
+  professor: string;
+  honorario: number;
+  horario: string;
+}
+
+export interface Modulo {
+  id: string;
+  turmaId: string;
+  nome: string;
+  ordem: number;
+  disciplinas: DisciplinaTurma[];
+}
+
 export interface Turma {
   id: string;
   nome: string;
@@ -19,7 +37,10 @@ export interface Turma {
   diasSemana: string;
   nucleo: string;
   honorario: number;
+  dataAula?: string;
+  horario?: string;
   createdAt: string;
+  modulos?: Modulo[];
 }
 
 export interface Aluno {

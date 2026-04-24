@@ -3238,9 +3238,11 @@ export type Database = {
       classes: {
         Row: {
           created_at: string | null
+          data_aula: string | null
           dias_semana: string | null
           disciplina: string | null
           honorario: number | null
+          horario: string | null
           id: string
           nome: string
           nucleo: string | null
@@ -3249,9 +3251,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          data_aula?: string | null
           dias_semana?: string | null
           disciplina?: string | null
           honorario?: number | null
+          horario?: string | null
           id?: string
           nome?: string
           nucleo?: string | null
@@ -3260,9 +3264,11 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          data_aula?: string | null
           dias_semana?: string | null
           disciplina?: string | null
           honorario?: number | null
+          horario?: string | null
           id?: string
           nome?: string
           nucleo?: string | null
@@ -3300,6 +3306,46 @@ export type Database = {
           telefone?: string | null
         }
         Relationships: []
+      }
+      disciplinas_turma: {
+        Row: {
+          created_at: string | null
+          honorario: number | null
+          horario: string | null
+          id: string
+          modulo_id: string
+          nome: string
+          numero: number | null
+          professor: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          honorario?: number | null
+          horario?: string | null
+          id?: string
+          modulo_id: string
+          nome?: string
+          numero?: number | null
+          professor?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          honorario?: number | null
+          horario?: string | null
+          id?: string
+          modulo_id?: string
+          nome?: string
+          numero?: number | null
+          professor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disciplinas_turma_modulo_id_fkey"
+            columns: ["modulo_id"]
+            referencedRelation: "modulos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       disciplines: {
         Row: {
@@ -3392,6 +3438,37 @@ export type Database = {
           },
           {
             foreignKeyName: "mensalidades_turma_id_fkey"
+            columns: ["turma_id"]
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      modulos: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          ordem: number | null
+          turma_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+          turma_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+          turma_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modulos_turma_id_fkey"
             columns: ["turma_id"]
             referencedRelation: "classes"
             referencedColumns: ["id"]

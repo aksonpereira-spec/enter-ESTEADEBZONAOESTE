@@ -4,7 +4,8 @@ import { Aluno, Turma, TipoBolsa } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX, Hash, Wand2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX, Hash, Wand2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 
 const emptyForm = {
@@ -362,11 +363,39 @@ const AlunosTab = () => {
                       ) : <span className="text-muted-foreground text-xs">Sem turma</span>}
                     </td>
                     <td className="table-td hidden xl:table-cell">
-                      {a.tipoBolsa ? (
-                        <span className={`text-xs px-2 py-1 rounded-full font-medium ${TIPO_BOLSA_STYLE[a.tipoBolsa] || 'bg-muted text-muted-foreground'}`}>
-                          {a.tipoBolsa}
-                        </span>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
+                      <div className="flex items-center gap-1.5">
+                        {a.tipoBolsa ? (
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${TIPO_BOLSA_STYLE[a.tipoBolsa] || 'bg-muted text-muted-foreground'}`}>
+                            {a.tipoBolsa}
+                          </span>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 opacity-50 hover:opacity-100 hover:bg-primary/10 hover:text-primary flex-shrink-0" title="Editar bolsa">
+                              <Pencil className="w-3 h-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-52 p-3" align="start">
+                            <p className="text-xs font-semibold text-foreground mb-2">Alterar Tipo/Bolsa</p>
+                            <Select
+                              value={a.tipoBolsa || 'none-bolsa'}
+                              onValueChange={async (v) => {
+                                const newVal = v === 'none-bolsa' ? '' : v as TipoBolsa;
+                                await supabase.from('alunos').update({ tipo_bolsa: newVal }).eq('id', a.id);
+                                load();
+                                toast.success('Bolsa atualizada');
+                              }}>
+                              <SelectTrigger className="h-8 text-xs form-input w-full"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none-bolsa">— Nenhum —</SelectItem>
+                                {TIPO_BOLSA_OPTIONS.filter(o => o.value !== '').map(o => (
+                                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     </td>
                     <td className="table-td text-center">
                       <button onClick={() => toggleAtivo(a.id, a.ativo)}
