@@ -229,16 +229,24 @@ const StudentPortal = () => {
       toast.success(`Matrícula gerada: ${matricula}`);
     }
 
-    // 3. Save to student_profiles
-    const payload = { ...profile, auth_user_id: studentAuthId, aluno_id: currentAlunoId, updated_at: new Date().toISOString() };
-    if (profileId) {
-      const { error } = await supabase.from('student_profiles').update(payload).eq('id', profileId);
-      if (error) { toast.error('Erro ao salvar ficha'); setSaving(false); return; }
-    } else {
-      const { data, error } = await supabase.from('student_profiles').insert(payload).select().maybeSingle();
-      if (error) { toast.error('Erro ao salvar ficha'); setSaving(false); return; }
-      if (data) setProfileId(data.id);
+    // 3. Save to student_profiles — upsert by auth_user_id to avoid duplicate key errors
+    const payload = {
+      ...profile,
+      auth_user_id: studentAuthId,
+      aluno_id: currentAlunoId,
+      updated_at: new Date().toISOString(),
+    };
+    const { data: saved, error: saveErr } = await supabase
+      .from('student_profiles')
+      .upsert(payload, { onConflict: 'auth_user_id' })
+      .select()
+      .maybeSingle();
+    if (saveErr) {
+      toast.error('Erro ao salvar ficha: ' + saveErr.message);
+      setSaving(false);
+      return;
     }
+    if (saved && !profileId) setProfileId(saved.id);
 
     toast.success('Ficha salva com sucesso!');
     setSaving(false);

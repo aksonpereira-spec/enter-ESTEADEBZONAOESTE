@@ -1,0 +1,4 @@
+-- Add new columns to disciplinas_turma for complete discipline data
+ALTER TABLE disciplinas_turma ADD COLUMN IF NOT EXISTS turno TEXT DEFAULT 'Noite';
+ALTER TABLE disciplinas_turma ADD COLUMN IF NOT EXISTS data_aula DATE;
+ALTER TABLE disciplinas_turma ADD COLUMN IF NOT EXISTS dia_semana TEXT DEFAULT '';

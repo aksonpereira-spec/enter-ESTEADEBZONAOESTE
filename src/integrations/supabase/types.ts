@@ -3310,6 +3310,8 @@ export type Database = {
       disciplinas_turma: {
         Row: {
           created_at: string | null
+          data_aula: string | null
+          dia_semana: string | null
           honorario: number | null
           horario: string | null
           id: string
@@ -3317,9 +3319,12 @@ export type Database = {
           nome: string
           numero: number | null
           professor: string | null
+          turno: string | null
         }
         Insert: {
           created_at?: string | null
+          data_aula?: string | null
+          dia_semana?: string | null
           honorario?: number | null
           horario?: string | null
           id?: string
@@ -3327,9 +3332,12 @@ export type Database = {
           nome?: string
           numero?: number | null
           professor?: string | null
+          turno?: string | null
         }
         Update: {
           created_at?: string | null
+          data_aula?: string | null
+          dia_semana?: string | null
           honorario?: number | null
           horario?: string | null
           id?: string
@@ -3337,6 +3345,7 @@ export type Database = {
           nome?: string
           numero?: number | null
           professor?: string | null
+          turno?: string | null
         }
         Relationships: [
           {
