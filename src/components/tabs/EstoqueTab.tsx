@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Material {
-  id: string; tipo: string; disciplina: string; nome: string;
+  id: string; tipo: string; disciplina: string; nome: string; tamanho: string;
   modulo: number; quantidade: number; valorUnitario: number;
   status: string; createdAt: string;
 }
@@ -26,7 +26,7 @@ interface Pedido {
 interface LojaUser { id: string; nome: string; username: string; createdAt: string; }
 
 // ─── Material form ─────────────────────────────────────────────────────────────
-const emptyMat = { tipo: 'Apostila', disciplina: '', nome: '', modulo: 1, quantidade: 0, valorUnitario: '', status: 'Disponivel' };
+const emptyMat = { tipo: 'Apostila', disciplina: '', nome: '', tamanho: '', modulo: 1, quantidade: 0, valorUnitario: '', status: 'Disponivel' };
 
 const STATUS_COLOR: Record<string, string> = {
   Disponivel: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -98,7 +98,7 @@ const EstoqueTab = () => {
     ]);
     if (matRes.data) setMateriais(matRes.data.map(r => ({
       id: r.id, tipo: r.tipo, disciplina: r.disciplina ?? '', nome: r.nome,
-      modulo: r.modulo ?? 1, quantidade: r.quantidade ?? 0,
+      tamanho: r.tamanho ?? '', modulo: r.modulo ?? 1, quantidade: r.quantidade ?? 0,
       valorUnitario: Number(r.valor_unitario) || 0, status: r.status ?? 'Disponivel',
       createdAt: r.created_at,
     })));
@@ -114,6 +114,7 @@ const EstoqueTab = () => {
     if (!form.nome.trim()) { toast.error('Nome do material é obrigatório'); return; }
     const payload = {
       tipo: form.tipo, disciplina: form.tipo === 'Apostila' ? form.disciplina : '',
+      tamanho: form.tipo === 'Camisa' ? form.tamanho : '',
       nome: form.nome.trim(), modulo: form.modulo,
       quantidade: Number(form.quantidade) || 0,
       valor_unitario: parseFloat(String(form.valorUnitario)) || 0,
@@ -293,6 +294,20 @@ const EstoqueTab = () => {
                         <Input className="form-input" placeholder="Nome da disciplina" value={form.disciplina} onChange={e => setForm(p => ({ ...p, disciplina: e.target.value }))} />
                       </div>
                     )}
+                    {form.tipo === 'Camisa' && (
+                      <div>
+                        <label className="form-label">Tamanho *</label>
+                        <Select value={form.tamanho} onValueChange={v => setForm(p => ({ ...p, tamanho: v }))}>
+                          <SelectTrigger className="form-input"><SelectValue placeholder="Selecione o tamanho" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="P">P — Pequeno</SelectItem>
+                            <SelectItem value="M">M — Médio</SelectItem>
+                            <SelectItem value="G">G — Grande</SelectItem>
+                            <SelectItem value="GG">GG — Extra Grande</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     <div>
                       <label className="form-label">Módulo (1–44)</label>
                       <Input type="number" min="1" max="44" className="form-input" value={form.modulo} onChange={e => setForm(p => ({ ...p, modulo: parseInt(e.target.value) || 1 }))} />
@@ -371,6 +386,11 @@ const EstoqueTab = () => {
                             <td className="table-td">
                               <p className="font-medium text-sm text-foreground">{m.nome}</p>
                               {m.disciplina && <p className="text-xs text-muted-foreground">{m.disciplina}</p>}
+                              {m.tipo === 'Camisa' && m.tamanho && (
+                                <span className="text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">
+                                  Tam. {m.tamanho}
+                                </span>
+                              )}
                             </td>
                             <td className="table-td text-center hidden sm:table-cell">
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${m.tipo === 'Apostila' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}`}>
@@ -401,7 +421,7 @@ const EstoqueTab = () => {
                                 </button>
                                 <button title="Editar"
                                   onClick={() => {
-                                    setForm({ tipo: m.tipo, disciplina: m.disciplina, nome: m.nome, modulo: m.modulo, quantidade: m.quantidade, valorUnitario: String(m.valorUnitario), status: m.status });
+                                    setForm({ tipo: m.tipo, disciplina: m.disciplina, nome: m.nome, tamanho: m.tamanho, modulo: m.modulo, quantidade: m.quantidade, valorUnitario: String(m.valorUnitario), status: m.status });
                                     setEditingId(m.id); setShowForm(true); setEntradaId(null);
                                   }}
                                   className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors">

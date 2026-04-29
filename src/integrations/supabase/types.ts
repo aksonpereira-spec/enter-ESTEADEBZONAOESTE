@@ -3395,6 +3395,7 @@ export type Database = {
           nome: string
           quantidade: number | null
           status: string | null
+          tamanho: string | null
           tipo: string
           valor_unitario: number | null
         }
@@ -3406,6 +3407,7 @@ export type Database = {
           nome?: string
           quantidade?: number | null
           status?: string | null
+          tamanho?: string | null
           tipo?: string
           valor_unitario?: number | null
         }
@@ -3417,6 +3419,7 @@ export type Database = {
           nome?: string
           quantidade?: number | null
           status?: string | null
+          tamanho?: string | null
           tipo?: string
           valor_unitario?: number | null
         }

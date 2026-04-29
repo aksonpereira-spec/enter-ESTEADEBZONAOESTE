@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Material {
-  id: string; tipo: string; disciplina: string; nome: string;
+  id: string; tipo: string; disciplina: string; nome: string; tamanho: string;
   modulo: number; quantidade: number; valorUnitario: number; status: string;
 }
 
@@ -180,6 +180,7 @@ const LojaAluno = () => {
   const [loadingStore, setLoadingStore] = useState(false);
   const [filterTipo, setFilterTipo] = useState('Todos');
   const [filterDisc, setFilterDisc] = useState('Todas');
+  const [filterTamanho, setFilterTamanho] = useState('Todos');
   const [search, setSearch] = useState('');
   const [orderModal, setOrderModal] = useState<Material | null>(null);
   const [nucleoNome, setNucleoNome] = useState('');
@@ -191,7 +192,7 @@ const LojaAluno = () => {
       supabase.from('loja_pedidos').select('*, estoque_materiais(nome, tipo, disciplina, modulo)').eq('usuario_id', uid).order('created_at', { ascending: false }),
     ]);
     if (matRes.data) setMateriais(matRes.data.map(r => ({
-      id: r.id, tipo: r.tipo, disciplina: r.disciplina ?? '', nome: r.nome,
+      id: r.id, tipo: r.tipo, disciplina: r.disciplina ?? '', nome: r.nome, tamanho: r.tamanho ?? '',
       modulo: r.modulo ?? 1, quantidade: r.quantidade ?? 0,
       valorUnitario: Number(r.valor_unitario) || 0, status: r.status ?? '',
     })));
@@ -276,6 +277,7 @@ const LojaAluno = () => {
   const filtered = materiais.filter(m => {
     if (filterTipo !== 'Todos' && m.tipo !== filterTipo) return false;
     if (filterDisc !== 'Todas' && m.disciplina !== filterDisc) return false;
+    if (filterTamanho !== 'Todos' && m.tamanho !== filterTamanho) return false;
     if (search && !m.nome.toLowerCase().includes(search.toLowerCase()) && !m.disciplina.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -441,7 +443,7 @@ const LojaAluno = () => {
                 <Input className="form-input pl-9 h-9" placeholder="Buscar material..."
                   value={search} onChange={e => setSearch(e.target.value)} />
               </div>
-              <Select value={filterTipo} onValueChange={setFilterTipo}>
+              <Select value={filterTipo} onValueChange={v => { setFilterTipo(v); setFilterTamanho('Todos'); }}>
                 <SelectTrigger className="form-input h-9 w-[140px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Todos">Todos os tipos</SelectItem>
@@ -449,6 +451,18 @@ const LojaAluno = () => {
                   <SelectItem value="Camisa">Camisas</SelectItem>
                 </SelectContent>
               </Select>
+              {filterTipo === 'Camisa' && (
+                <Select value={filterTamanho} onValueChange={setFilterTamanho}>
+                  <SelectTrigger className="form-input h-9 w-[130px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Todos">Todos tamanhos</SelectItem>
+                    <SelectItem value="P">P — Pequeno</SelectItem>
+                    <SelectItem value="M">M — Médio</SelectItem>
+                    <SelectItem value="G">G — Grande</SelectItem>
+                    <SelectItem value="GG">GG — Extra Grande</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               {disciplinas.length > 1 && (
                 <Select value={filterDisc} onValueChange={setFilterDisc}>
                   <SelectTrigger className="form-input h-9 w-[180px]"><SelectValue /></SelectTrigger>
@@ -487,9 +501,15 @@ const LojaAluno = () => {
                     <div className="flex-1">
                       <h3 className="font-bold text-foreground text-sm leading-tight">{m.nome}</h3>
                       {m.disciplina && <p className="text-xs text-muted-foreground mt-0.5">{m.disciplina}</p>}
-                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                        <GraduationCap className="w-3 h-3" />Módulo {m.modulo}
-                      </p>
+                      {m.tipo === 'Camisa' && m.tamanho ? (
+                        <p className="text-xs font-bold text-purple-700 mt-1 flex items-center gap-1">
+                          <Shirt className="w-3 h-3" />Tamanho: {m.tamanho}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <GraduationCap className="w-3 h-3" />Módulo {m.modulo}
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-border">
                       <span className="font-bold text-lg text-primary">{fmt(m.valorUnitario)}</span>
