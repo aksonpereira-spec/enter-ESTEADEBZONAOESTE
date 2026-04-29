@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { QRCodeSVG } from 'qrcode.react';
+import QRCode from 'react-qr-code';
 import {
   Package, ShoppingCart, LogOut, Eye, EyeOff, BookOpen, Shirt,
   Clock, CheckCircle2, Truck, Search, X, Plus, Minus, GraduationCap, Copy,
@@ -398,7 +398,7 @@ const LojaAluno = () => {
                 {/* QR Code */}
                 <div className="flex flex-col items-center gap-2 flex-shrink-0">
                   <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-sm">
-                    <QRCodeSVG value={PIX_PAYLOAD} size={140} level="M" />
+                    <QRCode value={PIX_PAYLOAD} size={140} level="M" />
                   </div>
                   <p className="text-xs text-muted-foreground text-center max-w-[140px] leading-snug">
                     Leia o QR Code com o app do seu banco e informe o valor total
