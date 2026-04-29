@@ -163,6 +163,23 @@ const EstoqueTab = () => {
     toast.success('Pedido marcado como entregue'); load();
   };
 
+  const deletePedido = async (id: string) => {
+    const pedido = pedidos.find(p => p.id === id);
+    const { error } = await supabase.from('loja_pedidos').delete().eq('id', id);
+    if (error) { toast.error('Erro ao excluir pedido'); return; }
+    // Restaura estoque se pedido ainda não entregue
+    if (pedido && pedido.status !== 'Entregue') {
+      const mat = materiais.find(m => m.id === pedido.material_id);
+      if (mat) {
+        await supabase.from('estoque_materiais').update({
+          quantidade: mat.quantidade + pedido.quantidade,
+          status: 'Disponivel',
+        }).eq('id', mat.id);
+      }
+    }
+    toast.success('Pedido excluído'); load();
+  };
+
   // ── Usuários ──
   const deleteUser = async (id: string) => {
     const { error } = await supabase.from('loja_usuarios').delete().eq('id', id);
@@ -476,6 +493,11 @@ const EstoqueTab = () => {
                                       <Truck className="w-3 h-3" />Entregue
                                     </Button>
                                   )}
+                                  <button title="Excluir pedido"
+                                    onClick={() => deletePedido(p.id)}
+                                    className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               </td>
                             </tr>

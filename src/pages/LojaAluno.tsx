@@ -161,6 +161,8 @@ const OrderModal = ({ material, onClose, onConfirm }: {
 };
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
+const LOJA_SESSION_KEY = 'loja_session';
+
 const LojaAluno = () => {
   const [screen, setScreen] = useState<'auth' | 'loja' | 'pedidos'>('auth');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -185,7 +187,15 @@ const LojaAluno = () => {
   useEffect(() => {
     supabase.from('nucleo_config').select('nome_nucleo').limit(1).maybeSingle()
       .then(({ data }) => { if (data?.nome_nucleo) setNucleoNome(data.nome_nucleo); });
-  }, []);
+    // Restore session from localStorage
+    try {
+      const saved = localStorage.getItem(LOJA_SESSION_KEY);
+      if (saved) {
+        const { id, nome } = JSON.parse(saved);
+        if (id && nome) { setUserId(id); setUserName(nome); setScreen('loja'); loadStore(id); }
+      }
+    } catch { /* ignore */ }
+  }, [loadStore]);
 
   const loadStore = useCallback(async (uid: string) => {
     setLoadingStore(true);
@@ -211,6 +221,7 @@ const LojaAluno = () => {
     if (!data) { toast.error('Usuário ou senha inválidos'); setAuthLoading(false); return; }
     if (data.nome.trim().toLowerCase() !== nome.trim().toLowerCase()) { toast.error('Nome não confere com o cadastro'); setAuthLoading(false); return; }
     setUserId(data.id); setUserName(data.nome);
+    localStorage.setItem(LOJA_SESSION_KEY, JSON.stringify({ id: data.id, nome: data.nome }));
     setScreen('loja'); loadStore(data.id);
     setAuthLoading(false);
   };
@@ -225,6 +236,7 @@ const LojaAluno = () => {
     const { data, error } = await supabase.from('loja_usuarios').insert({ nome: nome.trim(), username: username.trim().toLowerCase(), senha }).select().maybeSingle();
     if (error || !data) { toast.error('Erro ao cadastrar: ' + (error?.message || '')); setAuthLoading(false); return; }
     setUserId(data.id); setUserName(data.nome);
+    localStorage.setItem(LOJA_SESSION_KEY, JSON.stringify({ id: data.id, nome: data.nome }));
     toast.success('Cadastro realizado! Bem-vindo(a) à loja!');
     setScreen('loja'); loadStore(data.id);
     setAuthLoading(false);
@@ -232,6 +244,7 @@ const LojaAluno = () => {
 
   const handleLogout = () => {
     setUserId(null); setUserName(''); setScreen('auth');
+    localStorage.removeItem(LOJA_SESSION_KEY);
     setAuthForm({ nome: '', username: '', senha: '' });
   };
 
