@@ -19,7 +19,7 @@ interface Material {
 interface Pedido {
   id: string; material_id: string; quantidade: number;
   valor_total: number; status: string; created_at: string;
-  estoque_materiais?: { nome: string; tipo: string; disciplina: string; modulo: number };
+  estoque_materiais?: { nome: string; tipo: string; disciplina: string; modulo: number; tamanho?: string };
 }
 
 // ─── Status badges ─────────────────────────────────────────────────────────────
@@ -189,7 +189,7 @@ const LojaAluno = () => {
     setLoadingStore(true);
     const [matRes, pedRes] = await Promise.all([
       supabase.from('estoque_materiais').select('*').eq('status', 'Disponivel').gt('quantidade', 0).order('tipo').order('nome'),
-      supabase.from('loja_pedidos').select('*, estoque_materiais(nome, tipo, disciplina, modulo)').eq('usuario_id', uid).order('created_at', { ascending: false }),
+      supabase.from('loja_pedidos').select('*, estoque_materiais(nome, tipo, disciplina, modulo, tamanho)').eq('usuario_id', uid).order('created_at', { ascending: false }),
     ]);
     if (matRes.data) setMateriais(matRes.data.map(r => ({
       id: r.id, tipo: r.tipo, disciplina: r.disciplina ?? '', nome: r.nome, tamanho: r.tamanho ?? '',
@@ -502,14 +502,16 @@ const LojaAluno = () => {
                       <h3 className="font-bold text-foreground text-sm leading-tight">{m.nome}</h3>
                       {m.disciplina && <p className="text-xs text-muted-foreground mt-0.5">{m.disciplina}</p>}
                       {m.tipo === 'Camisa' && m.tamanho ? (
-                        <p className="text-xs font-bold text-purple-700 mt-1 flex items-center gap-1">
-                          <Shirt className="w-3 h-3" />Tamanho: {m.tamanho}
-                        </p>
-                      ) : (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center gap-1.5 bg-purple-100 text-purple-800 border border-purple-200 font-bold text-sm px-3 py-1 rounded-full">
+                            <Shirt className="w-3.5 h-3.5" />Tamanho {m.tamanho}
+                          </span>
+                        </div>
+                      ) : m.tipo === 'Apostila' ? (
                         <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                           <GraduationCap className="w-3 h-3" />Módulo {m.modulo}
                         </p>
-                      )}
+                      ) : null}
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-border">
                       <span className="font-bold text-lg text-primary">{fmt(m.valorUnitario)}</span>
@@ -544,7 +546,7 @@ const LojaAluno = () => {
             ) : (
               <div className="space-y-3">
                 {pedidos.map(p => {
-                  const mat = p.estoque_materiais as { nome: string; tipo: string; disciplina: string; modulo: number } | undefined;
+                  const mat = p.estoque_materiais as { nome: string; tipo: string; disciplina: string; modulo: number; tamanho?: string } | undefined;
                   const sc = STATUS_CONFIG[p.status] || STATUS_CONFIG.Pendente;
                   return (
                     <div key={p.id} className="content-card p-4">
@@ -557,7 +559,10 @@ const LojaAluno = () => {
                             <p className="font-semibold text-sm text-foreground truncate">{mat?.nome || '—'}</p>
                             {mat?.disciplina && <p className="text-xs text-muted-foreground">{mat.disciplina}</p>}
                             <p className="text-xs text-muted-foreground">
-                              Módulo {mat?.modulo} · {p.quantidade} un. · <span className="font-semibold text-foreground">{fmt(p.valor_total)}</span>
+                              {mat?.tipo === 'Camisa' && mat?.tamanho
+                                ? <span className="font-bold text-purple-700">Tam. {mat.tamanho}</span>
+                                : `Módulo ${mat?.modulo}`
+                              } · {p.quantidade} un. · <span className="font-semibold text-foreground">{fmt(p.valor_total)}</span>
                             </p>
                           </div>
                         </div>

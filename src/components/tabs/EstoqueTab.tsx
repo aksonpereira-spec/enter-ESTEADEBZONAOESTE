@@ -331,10 +331,12 @@ const EstoqueTab = () => {
                         </Select>
                       </div>
                     )}
-                    <div>
-                      <label className="form-label">Módulo (1–44)</label>
-                      <Input type="number" min="1" max="44" className="form-input" value={form.modulo} onChange={e => setForm(p => ({ ...p, modulo: parseInt(e.target.value) || 1 }))} />
-                    </div>
+                    {form.tipo === 'Apostila' && (
+                      <div>
+                        <label className="form-label">Módulo (1–44)</label>
+                        <Input type="number" min="1" max="44" className="form-input" value={form.modulo} onChange={e => setForm(p => ({ ...p, modulo: parseInt(e.target.value) || 1 }))} />
+                      </div>
+                    )}
                     <div>
                       <label className="form-label">Qtd em Estoque</label>
                       <Input type="number" min="0" className="form-input" value={form.quantidade} onChange={e => setForm(p => ({ ...p, quantidade: parseInt(e.target.value) || 0 }))} />
@@ -396,7 +398,7 @@ const EstoqueTab = () => {
                         <tr className="table-head">
                           <th className="table-th text-left">Material</th>
                           <th className="table-th text-center hidden sm:table-cell">Tipo</th>
-                          <th className="table-th text-center hidden md:table-cell">Módulo</th>
+                          <th className="table-th text-center hidden md:table-cell">Módulo / Tam.</th>
                           <th className="table-th text-center">Qtd</th>
                           <th className="table-th text-right hidden sm:table-cell">Valor</th>
                           <th className="table-th text-center">Status</th>
@@ -421,7 +423,10 @@ const EstoqueTab = () => {
                               </span>
                             </td>
                             <td className="table-td text-center hidden md:table-cell">
-                              <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Mod. {m.modulo}</span>
+                              {m.tipo === 'Camisa'
+                                ? m.tamanho ? <span className="text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full">Tam. {m.tamanho}</span> : <span className="text-xs text-muted-foreground">—</span>
+                                : <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Mod. {m.modulo}</span>
+                              }
                             </td>
                             <td className="table-td text-center">
                               <span className={`font-bold text-sm ${m.quantidade === 0 ? 'text-red-500' : 'text-foreground'}`}>{m.quantidade}</span>
