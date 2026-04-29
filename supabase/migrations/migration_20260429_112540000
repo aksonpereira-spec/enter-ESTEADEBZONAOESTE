@@ -1,0 +1,41 @@
+-- Materiais do estoque
+CREATE TABLE IF NOT EXISTS estoque_materiais (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo TEXT NOT NULL DEFAULT 'Apostila',
+  disciplina TEXT DEFAULT '',
+  nome TEXT NOT NULL DEFAULT '',
+  modulo INT DEFAULT 1,
+  quantidade INT DEFAULT 0,
+  valor_unitario NUMERIC(10,2) DEFAULT 0,
+  status TEXT DEFAULT 'Disponivel',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE estoque_materiais ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_estoque" ON estoque_materiais;
+CREATE POLICY "allow_all_estoque" ON estoque_materiais FOR ALL USING (true) WITH CHECK (true);
+
+-- Usuários da loja (auth simples)
+CREATE TABLE IF NOT EXISTS loja_usuarios (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome TEXT NOT NULL DEFAULT '',
+  username TEXT NOT NULL UNIQUE,
+  senha TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE loja_usuarios ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_loja_usuarios" ON loja_usuarios;
+CREATE POLICY "allow_all_loja_usuarios" ON loja_usuarios FOR ALL USING (true) WITH CHECK (true);
+
+-- Pedidos dos alunos
+CREATE TABLE IF NOT EXISTS loja_pedidos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  usuario_id UUID REFERENCES loja_usuarios(id) ON DELETE CASCADE NOT NULL,
+  material_id UUID REFERENCES estoque_materiais(id) NOT NULL,
+  quantidade INT DEFAULT 1,
+  valor_total NUMERIC(10,2) DEFAULT 0,
+  status TEXT DEFAULT 'Pendente',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE loja_pedidos ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_loja_pedidos" ON loja_pedidos;
+CREATE POLICY "allow_all_loja_pedidos" ON loja_pedidos FOR ALL USING (true) WITH CHECK (true);

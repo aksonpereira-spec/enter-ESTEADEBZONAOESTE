@@ -2,6 +2,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import StudentPortal from "./pages/StudentPortal";
+import LojaAluno from "./pages/LojaAluno";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export const routers = [
@@ -19,6 +20,11 @@ export const routers = [
       path: "/portal",
       name: 'student-portal',
       element: <ProtectedRoute requiredRole="student"><StudentPortal /></ProtectedRoute>,
+    },
+    {
+      path: "/loja",
+      name: 'loja-aluno',
+      element: <LojaAluno />,
     },
     /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
     {

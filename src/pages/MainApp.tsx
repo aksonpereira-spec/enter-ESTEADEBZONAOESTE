@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Users, Building2, CreditCard, ClipboardCheck, Menu, X, ChevronRight, BarChart3, Settings, MapPin, User, GraduationCap } from 'lucide-react';
+import { LogOut, Users, Building2, CreditCard, ClipboardCheck, Menu, X, ChevronRight, BarChart3, Settings, MapPin, User, GraduationCap, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AlunosTab from '@/components/tabs/AlunosTab';
 import TurmasTab from '@/components/tabs/TurmasTab';
@@ -10,9 +10,10 @@ import ChamadaTab from '@/components/tabs/ChamadaTab';
 import FinanceiroTab from '@/components/tabs/FinanceiroTab';
 import ConfigTab from '@/components/tabs/ConfigTab';
 import FichasTab from '@/components/tabs/FichasTab';
+import EstoqueTab from '@/components/tabs/EstoqueTab';
 import { NucleoConfig } from '@/types/school';
 
-type Tab = 'alunos' | 'turmas' | 'mensalidade' | 'chamada' | 'financeiro' | 'fichas' | 'config';
+type Tab = 'alunos' | 'turmas' | 'mensalidade' | 'chamada' | 'financeiro' | 'fichas' | 'estoque' | 'config';
 
 const TABS = [
   { id: 'alunos' as Tab, label: 'Cadastro de Alunos', icon: Users, desc: 'Gerencie os alunos cadastrados' },
@@ -21,6 +22,7 @@ const TABS = [
   { id: 'chamada' as Tab, label: 'Chamada', icon: ClipboardCheck, desc: 'Lista de presença' },
   { id: 'financeiro' as Tab, label: 'Financeiro', icon: BarChart3, desc: 'Resumo financeiro e comissões' },
   { id: 'fichas' as Tab, label: 'Fichas Online', icon: GraduationCap, desc: 'Fichas cadastradas pelo Portal do Aluno' },
+  { id: 'estoque' as Tab, label: 'Estoque', icon: Package, desc: 'Apostilas, camisas e pedidos dos alunos' },
   { id: 'config' as Tab, label: 'Configurações', icon: Settings, desc: 'Núcleo, coordenador e sistema' },
 ];
 
@@ -187,6 +189,7 @@ const MainApp = () => {
             {activeTab === 'chamada' && <ChamadaTab />}
             {activeTab === 'financeiro' && <FinanceiroTab />}
             {activeTab === 'fichas' && <FichasTab />}
+            {activeTab === 'estoque' && <EstoqueTab />}
             {activeTab === 'config' && <ConfigTab onConfigChange={setNucleoConfig} />}
           </div>
         </main>

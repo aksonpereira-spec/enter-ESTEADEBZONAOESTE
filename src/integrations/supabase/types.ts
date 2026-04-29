@@ -3386,6 +3386,109 @@ export type Database = {
         }
         Relationships: []
       }
+      estoque_materiais: {
+        Row: {
+          created_at: string | null
+          disciplina: string | null
+          id: string
+          modulo: number | null
+          nome: string
+          quantidade: number | null
+          status: string | null
+          tipo: string
+          valor_unitario: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          disciplina?: string | null
+          id?: string
+          modulo?: number | null
+          nome?: string
+          quantidade?: number | null
+          status?: string | null
+          tipo?: string
+          valor_unitario?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          disciplina?: string | null
+          id?: string
+          modulo?: number | null
+          nome?: string
+          quantidade?: number | null
+          status?: string | null
+          tipo?: string
+          valor_unitario?: number | null
+        }
+        Relationships: []
+      }
+      loja_pedidos: {
+        Row: {
+          created_at: string | null
+          id: string
+          material_id: string
+          quantidade: number | null
+          status: string | null
+          usuario_id: string
+          valor_total: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          material_id: string
+          quantidade?: number | null
+          status?: string | null
+          usuario_id: string
+          valor_total?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          material_id?: string
+          quantidade?: number | null
+          status?: string | null
+          usuario_id?: string
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loja_pedidos_material_id_fkey"
+            columns: ["material_id"]
+            referencedRelation: "estoque_materiais"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loja_pedidos_usuario_id_fkey"
+            columns: ["usuario_id"]
+            referencedRelation: "loja_usuarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loja_usuarios: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          senha: string
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          senha?: string
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          senha?: string
+          username?: string
+        }
+        Relationships: []
+      }
       mensalidades: {
         Row: {
           aluno_id: string
@@ -3775,7 +3878,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_19: {
+      messages_2026_04_27: {
         Row: {
           event: string | null
           extension: string
@@ -3808,7 +3911,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_20: {
+      messages_2026_04_28: {
         Row: {
           event: string | null
           extension: string
@@ -3841,7 +3944,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_21: {
+      messages_2026_04_29: {
         Row: {
           event: string | null
           extension: string
@@ -3874,7 +3977,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_22: {
+      messages_2026_04_30: {
         Row: {
           event: string | null
           extension: string
@@ -3907,7 +4010,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_23: {
+      messages_2026_05_01: {
         Row: {
           event: string | null
           extension: string
