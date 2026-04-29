@@ -47,6 +47,26 @@ const PEDIDO_STATUS_ICON: Record<string, JSX.Element> = {
 
 const fmt = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
 
+function safeCopy(text: string, onSuccess: () => void) {
+  try {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      onSuccess();
+    });
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    onSuccess();
+  }
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 const EstoqueTab = () => {
   const [materiais, setMateriais] = useState<Material[]>([]);
@@ -166,7 +186,7 @@ const EstoqueTab = () => {
             </div>
           </div>
           <Button size="sm" variant="outline" className="gap-2 flex-shrink-0"
-            onClick={() => { navigator.clipboard.writeText(lojaUrl); toast.success('Link copiado!'); }}>
+            onClick={() => safeCopy(lojaUrl, () => toast.success('Link copiado!'))}>
             <Copy className="w-3.5 h-3.5" />Copiar Link
           </Button>
         </div>

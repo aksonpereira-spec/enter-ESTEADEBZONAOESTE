@@ -66,6 +66,26 @@ function buildPixPayload(): string {
 }
 
 const PIX_PAYLOAD = buildPixPayload();
+
+function safeCopy(text: string, onSuccess: () => void) {
+  try {
+    navigator.clipboard.writeText(text).then(onSuccess).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      onSuccess();
+    });
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    onSuccess();
+  }
+}
 const OrderModal = ({ material, onClose, onConfirm }: {
   material: Material;
   onClose: () => void;
@@ -381,7 +401,7 @@ const LojaAluno = () => {
                       </code>
                       <Button size="sm" variant="outline"
                         className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 flex-shrink-0 h-10"
-                        onClick={() => { navigator.clipboard.writeText(PIX_KEY_DISPLAY); toast.success('Chave PIX copiada!'); }}>
+                        onClick={() => safeCopy(PIX_KEY_DISPLAY, () => toast.success('Chave PIX copiada!'))}>
                         <Copy className="w-3.5 h-3.5" />Copiar
                       </Button>
                     </div>
