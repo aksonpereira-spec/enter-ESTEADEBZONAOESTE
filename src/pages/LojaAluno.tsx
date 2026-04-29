@@ -149,11 +149,12 @@ const LojaAluno = () => {
 
   // ── Auth ──
   const handleLogin = async () => {
-    const { username, senha } = authForm;
-    if (!username || !senha) { toast.error('Preencha usuário e senha'); return; }
+    const { nome, username, senha } = authForm;
+    if (!nome.trim() || !username || !senha) { toast.error('Preencha todos os campos'); return; }
     setAuthLoading(true);
     const { data } = await supabase.from('loja_usuarios').select('id, nome').eq('username', username.trim().toLowerCase()).eq('senha', senha).maybeSingle();
     if (!data) { toast.error('Usuário ou senha inválidos'); setAuthLoading(false); return; }
+    if (data.nome.trim().toLowerCase() !== nome.trim().toLowerCase()) { toast.error('Nome não confere com o cadastro'); setAuthLoading(false); return; }
     setUserId(data.id); setUserName(data.nome);
     setScreen('loja'); loadStore(data.id);
     setAuthLoading(false);
@@ -236,13 +237,11 @@ const LojaAluno = () => {
 
           {/* Form */}
           <div className="content-card p-6 space-y-4">
-            {authMode === 'register' && (
-              <div>
-                <label className="form-label">Nome completo</label>
-                <Input className="form-input" placeholder="Seu nome" value={authForm.nome}
-                  onChange={e => setAuthForm(p => ({ ...p, nome: e.target.value }))} />
-              </div>
-            )}
+            <div>
+              <label className="form-label">Nome completo</label>
+              <Input className="form-input" placeholder="Seu nome" value={authForm.nome}
+                onChange={e => setAuthForm(p => ({ ...p, nome: e.target.value }))} />
+            </div>
             <div>
               <label className="form-label">Usuário</label>
               <Input className="form-input" placeholder="ex: joao.silva" value={authForm.username}
