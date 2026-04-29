@@ -184,19 +184,6 @@ const LojaAluno = () => {
   const [orderModal, setOrderModal] = useState<Material | null>(null);
   const [nucleoNome, setNucleoNome] = useState('');
 
-  useEffect(() => {
-    supabase.from('nucleo_config').select('nome_nucleo').limit(1).maybeSingle()
-      .then(({ data }) => { if (data?.nome_nucleo) setNucleoNome(data.nome_nucleo); });
-    // Restore session from localStorage
-    try {
-      const saved = localStorage.getItem(LOJA_SESSION_KEY);
-      if (saved) {
-        const { id, nome } = JSON.parse(saved);
-        if (id && nome) { setUserId(id); setUserName(nome); setScreen('loja'); loadStore(id); }
-      }
-    } catch { /* ignore */ }
-  }, [loadStore]);
-
   const loadStore = useCallback(async (uid: string) => {
     setLoadingStore(true);
     const [matRes, pedRes] = await Promise.all([
@@ -211,6 +198,23 @@ const LojaAluno = () => {
     if (pedRes.data) setPedidos(pedRes.data as unknown as Pedido[]);
     setLoadingStore(false);
   }, []);
+
+  // Load nucleo config
+  useEffect(() => {
+    supabase.from('nucleo_config').select('nome_nucleo').limit(1).maybeSingle()
+      .then(({ data }) => { if (data?.nome_nucleo) setNucleoNome(data.nome_nucleo); });
+  }, []);
+
+  // Restore session from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LOJA_SESSION_KEY);
+      if (saved) {
+        const { id, nome } = JSON.parse(saved);
+        if (id && nome) { setUserId(id); setUserName(nome); setScreen('loja'); loadStore(id); }
+      }
+    } catch { /* ignore */ }
+  }, [loadStore]);
 
   // ── Auth ──
   const handleLogin = async () => {
