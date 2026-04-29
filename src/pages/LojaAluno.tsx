@@ -16,8 +16,8 @@ interface Material {
 }
 
 interface Pedido {
-  id: string; materialId: string; quantidade: number;
-  valorTotal: number; status: string; createdAt: string;
+  id: string; material_id: string; quantidade: number;
+  valor_total: number; status: string; created_at: string;
   estoque_materiais?: { nome: string; tipo: string; disciplina: string; modulo: number };
 }
 
@@ -425,7 +425,7 @@ const LojaAluno = () => {
                             <p className="font-semibold text-sm text-foreground truncate">{mat?.nome || '—'}</p>
                             {mat?.disciplina && <p className="text-xs text-muted-foreground">{mat.disciplina}</p>}
                             <p className="text-xs text-muted-foreground">
-                              Módulo {mat?.modulo} · {p.quantidade} un. · <span className="font-semibold text-foreground">{fmt(p.valorTotal)}</span>
+                              Módulo {mat?.modulo} · {p.quantidade} un. · <span className="font-semibold text-foreground">{fmt(p.valor_total)}</span>
                             </p>
                           </div>
                         </div>
@@ -433,7 +433,7 @@ const LojaAluno = () => {
                           <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border ${sc.color}`}>
                             {sc.icon}{p.status}
                           </span>
-                          <p className="text-xs text-muted-foreground mt-1.5">{new Date(p.createdAt).toLocaleDateString('pt-BR')}</p>
+                          <p className="text-xs text-muted-foreground mt-1.5">{new Date(p.created_at).toLocaleDateString('pt-BR')}</p>
                         </div>
                       </div>
                       {p.status === 'Pendente' && (

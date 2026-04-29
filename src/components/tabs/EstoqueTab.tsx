@@ -17,8 +17,8 @@ interface Material {
 }
 
 interface Pedido {
-  id: string; usuarioId: string; materialId: string; quantidade: number;
-  valorTotal: number; status: string; createdAt: string;
+  id: string; usuario_id: string; material_id: string; quantidade: number;
+  valor_total: number; status: string; created_at: string;
   loja_usuarios?: { nome: string; username: string };
   estoque_materiais?: { nome: string; tipo: string; disciplina: string };
 }
@@ -436,7 +436,7 @@ const EstoqueTab = () => {
                                 {mat?.disciplina && <p className="text-xs text-muted-foreground">{mat.disciplina}</p>}
                               </td>
                               <td className="table-td text-center font-semibold">{p.quantidade}</td>
-                              <td className="table-td text-right hidden sm:table-cell font-semibold">{fmt(p.valorTotal)}</td>
+                              <td className="table-td text-right hidden sm:table-cell font-semibold">{fmt(p.valor_total)}</td>
                               <td className="table-td text-center">
                                 <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium border ${PEDIDO_STATUS_COLOR[p.status] || 'bg-muted text-muted-foreground'}`}>
                                   {PEDIDO_STATUS_ICON[p.status]}{p.status}
@@ -499,7 +499,7 @@ const EstoqueTab = () => {
                             <td className="table-td text-muted-foreground font-mono text-sm">@{u.username}</td>
                             <td className="table-td text-center hidden sm:table-cell">
                               <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
-                                {pedidos.filter(p => p.usuarioId === u.id).length}
+                                {pedidos.filter(p => p.usuario_id === u.id).length}
                               </span>
                             </td>
                             <td className="table-td text-center text-xs text-muted-foreground hidden md:table-cell">
