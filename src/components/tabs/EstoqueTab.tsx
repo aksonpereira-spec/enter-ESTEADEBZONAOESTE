@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Package, Plus, Edit2, Trash2, Check, X, Link2, Copy, ChevronDown, ChevronUp,
+  Package, Plus, Edit2, Trash2, Check, X, Link2, Copy,
   ShoppingCart, Users, TrendingUp, Box, CheckCircle2, Truck, Clock, RefreshCw,
+  BarChart2, DollarSign, AlertCircle, User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -73,7 +74,7 @@ const EstoqueTab = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [usuarios, setUsuarios] = useState<LojaUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<'materiais' | 'pedidos' | 'usuarios'>('materiais');
+  const [activeSection, setActiveSection] = useState<'materiais' | 'pedidos' | 'usuarios' | 'financeiro'>('materiais');
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -191,6 +192,27 @@ const EstoqueTab = () => {
   const totalDisponiveis = materiais.filter(m => m.status === 'Disponivel').length;
   const totalPendentes = pedidos.filter(p => p.status === 'Pendente').length;
 
+  // ── Financial computations ──
+  const pedidosPagos = pedidos.filter(p => p.status === 'Pago' || p.status === 'Entregue');
+  const pedidosPendentes = pedidos.filter(p => p.status === 'Pendente');
+  const totalArrecadado = pedidosPagos.reduce((s, p) => s + Number(p.valor_total), 0);
+  const totalPendenteValor = pedidosPendentes.reduce((s, p) => s + Number(p.valor_total), 0);
+  const ticketMedio = pedidosPagos.length > 0 ? totalArrecadado / pedidosPagos.length : 0;
+
+  // Per-student summary
+  const porAluno = usuarios.map(u => {
+    const ups = pedidos.filter(p => p.usuario_id === u.id);
+    const pagos = ups.filter(p => p.status === 'Pago' || p.status === 'Entregue');
+    const pendentes = ups.filter(p => p.status === 'Pendente');
+    return {
+      ...u,
+      qtdPedidos: ups.length,
+      totalPago: pagos.reduce((s, p) => s + Number(p.valor_total), 0),
+      totalPendente: pendentes.reduce((s, p) => s + Number(p.valor_total), 0),
+      pedidos: ups,
+    };
+  }).filter(u => u.qtdPedidos > 0).sort((a, b) => b.totalPago - a.totalPago);
+
   return (
     <div className="space-y-5">
       {/* Link da Loja */}
@@ -235,14 +257,15 @@ const EstoqueTab = () => {
       </div>
 
       {/* Section tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-border overflow-x-auto">
         {([
           { id: 'materiais', label: 'Materiais', icon: Box },
           { id: 'pedidos', label: `Pedidos ${totalPendentes > 0 ? `(${totalPendentes})` : ''}`, icon: ShoppingCart },
+          { id: 'financeiro', label: 'Financeiro', icon: BarChart2 },
           { id: 'usuarios', label: 'Alunos', icon: Users },
         ] as const).map(s => (
           <button key={s.id} onClick={() => setActiveSection(s.id as typeof activeSection)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px ${
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px whitespace-nowrap flex-shrink-0 ${
               activeSection === s.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}>
             <s.icon className="w-3.5 h-3.5" />{s.label}
@@ -525,6 +548,141 @@ const EstoqueTab = () => {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── FINANCEIRO ── */}
+          {activeSection === 'financeiro' && (
+            <div className="space-y-5">
+              {/* Summary cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="content-card p-4 bg-emerald-50 border-0">
+                  <p className="text-xs text-muted-foreground">Total Arrecadado</p>
+                  <p className="text-2xl font-bold text-emerald-600">{fmt(totalArrecadado)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{pedidosPagos.length} pedido(s) pago(s)</p>
+                </div>
+                <div className="content-card p-4 bg-amber-50 border-0">
+                  <p className="text-xs text-muted-foreground">Total Pendente</p>
+                  <p className="text-2xl font-bold text-amber-600">{fmt(totalPendenteValor)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{pedidosPendentes.length} pedido(s) em aberto</p>
+                </div>
+                <div className="content-card p-4 bg-blue-50 border-0">
+                  <p className="text-xs text-muted-foreground">Ticket Médio</p>
+                  <p className="text-2xl font-bold text-blue-600">{fmt(ticketMedio)}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">por pedido pago</p>
+                </div>
+                <div className="content-card p-4 bg-primary/5 border-0">
+                  <p className="text-xs text-muted-foreground">Compradores</p>
+                  <p className="text-2xl font-bold text-primary">{porAluno.length}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">alunos com pedidos</p>
+                </div>
+              </div>
+
+              {/* Per-student breakdown */}
+              <div>
+                <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                  <User className="w-4 h-4 text-primary" />Controle Individual por Aluno
+                </h3>
+                {porAluno.length === 0 ? (
+                  <div className="empty-state">
+                    <DollarSign className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">Nenhuma compra registrada ainda</p>
+                  </div>
+                ) : (
+                  <div className="content-card overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="table-head">
+                            <th className="table-th text-left">Aluno</th>
+                            <th className="table-th text-center">Pedidos</th>
+                            <th className="table-th text-right">Pago/Entregue</th>
+                            <th className="table-th text-right hidden sm:table-cell">Pendente</th>
+                            <th className="table-th text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {porAluno.map(u => (
+                            <tr key={u.id} className="table-row">
+                              <td className="table-td">
+                                <p className="font-semibold text-sm text-foreground">{u.nome}</p>
+                                <p className="text-xs text-muted-foreground font-mono">@{u.username}</p>
+                              </td>
+                              <td className="table-td text-center">
+                                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+                                  {u.qtdPedidos}
+                                </span>
+                              </td>
+                              <td className="table-td text-right font-bold text-emerald-600">
+                                {fmt(u.totalPago)}
+                              </td>
+                              <td className="table-td text-right text-amber-600 font-semibold hidden sm:table-cell">
+                                {u.totalPendente > 0 ? fmt(u.totalPendente) : <span className="text-muted-foreground">—</span>}
+                              </td>
+                              <td className="table-td text-right font-bold text-foreground">
+                                {fmt(u.totalPago + u.totalPendente)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-muted/30">
+                            <td className="table-td font-bold text-sm" colSpan={2}>Total Geral</td>
+                            <td className="table-td text-right font-bold text-emerald-600">{fmt(totalArrecadado)}</td>
+                            <td className="table-td text-right font-bold text-amber-600 hidden sm:table-cell">{fmt(totalPendenteValor)}</td>
+                            <td className="table-td text-right font-bold text-foreground">{fmt(totalArrecadado + totalPendenteValor)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Detail per student — expandable orders */}
+              {porAluno.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-primary" />Detalhe das Compras por Aluno
+                  </h3>
+                  <div className="space-y-3">
+                    {porAluno.map(u => (
+                      <div key={u.id} className="content-card p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="font-semibold text-sm text-foreground">{u.nome}</p>
+                            <p className="text-xs text-muted-foreground">@{u.username} · {u.qtdPedidos} pedido(s)</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-emerald-600 text-sm">{fmt(u.totalPago)} pago</p>
+                            {u.totalPendente > 0 && <p className="text-xs text-amber-600">{fmt(u.totalPendente)} pendente</p>}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {u.pedidos.map(p => {
+                            const mat = p.estoque_materiais as { nome: string; tipo: string; disciplina: string } | undefined;
+                            return (
+                              <div key={p.id} className="flex items-center justify-between py-1.5 px-3 rounded-lg bg-muted/30 text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-medium border flex-shrink-0 ${PEDIDO_STATUS_COLOR[p.status] || ''}`}>
+                                    {PEDIDO_STATUS_ICON[p.status]}{p.status}
+                                  </span>
+                                  <span className="truncate font-medium text-foreground">{mat?.nome || '—'}</span>
+                                  {mat?.disciplina && <span className="text-muted-foreground hidden sm:inline truncate">· {mat.disciplina}</span>}
+                                </div>
+                                <div className="flex items-center gap-3 flex-shrink-0">
+                                  <span className="text-muted-foreground">{p.quantidade} un.</span>
+                                  <span className="font-bold text-foreground">{fmt(Number(p.valor_total))}</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
