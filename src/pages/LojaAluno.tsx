@@ -3,9 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   Package, ShoppingCart, LogOut, Eye, EyeOff, BookOpen, Shirt,
-  Clock, CheckCircle2, Truck, Search, X, Plus, Minus, GraduationCap,
+  Clock, CheckCircle2, Truck, Search, X, Plus, Minus, GraduationCap, Copy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -30,7 +31,41 @@ const STATUS_CONFIG: Record<string, { color: string; label: string; icon: JSX.El
 
 const fmt = (v: number) => `R$ ${v.toFixed(2).replace('.', ',')}`;
 
-// ─── Order Modal ──────────────────────────────────────────────────────────────
+// ─── PIX Payload ──────────────────────────────────────────────────────────────
+const PIX_CNPJ = '40800393000132';
+const PIX_NAME = 'ESTEADEB';
+const PIX_CITY = 'SAO PAULO';
+const PIX_KEY_DISPLAY = '40.800.393/0001-32';
+
+function crc16(str: string): string {
+  let crc = 0xffff;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+    }
+  }
+  return ((crc & 0xffff).toString(16).toUpperCase().padStart(4, '0'));
+}
+
+function buildPixPayload(): string {
+  const emv = (id: string, val: string) => `${id}${String(val.length).padStart(2, '0')}${val}`;
+  const mai = emv('0014', 'BR.GOV.BCB.PIX') + emv('01', PIX_CNPJ);
+  const body = [
+    emv('00', '01'),
+    emv('26', mai),
+    emv('52', '0000'),
+    emv('53', '986'),
+    emv('58', 'BR'),
+    emv('59', PIX_NAME.substring(0, 25)),
+    emv('60', PIX_CITY.substring(0, 15)),
+    emv('62', emv('05', '***')),
+    '6304',
+  ].join('');
+  return body + crc16(body);
+}
+
+const PIX_PAYLOAD = buildPixPayload();
 const OrderModal = ({ material, onClose, onConfirm }: {
   material: Material;
   onClose: () => void;
@@ -319,6 +354,47 @@ const LojaAluno = () => {
             <div>
               <h2 className="text-xl font-bold text-foreground">Materiais Disponíveis</h2>
               <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} material(is) encontrado(s)</p>
+            </div>
+
+            {/* ── PIX Card ── */}
+            <div className="content-card p-5 border-l-4 border-l-emerald-500 bg-emerald-50/40">
+              <p className="text-sm font-bold text-emerald-800 mb-4 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />Pagamento via PIX
+              </p>
+              <div className="flex flex-col sm:flex-row gap-6 items-start">
+                {/* QR Code */}
+                <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                  <div className="p-3 bg-white rounded-xl border border-emerald-100 shadow-sm">
+                    <QRCodeSVG value={PIX_PAYLOAD} size={140} level="M" />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center max-w-[140px] leading-snug">
+                    Leia o QR Code com o app do seu banco e informe o valor total
+                  </p>
+                </div>
+                {/* PIX Key + instructions */}
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1.5">Chave PIX (CNPJ)</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-white border border-emerald-200 text-emerald-900 font-mono text-sm px-3 py-2.5 rounded-lg tracking-wider">
+                        {PIX_KEY_DISPLAY}
+                      </code>
+                      <Button size="sm" variant="outline"
+                        className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 flex-shrink-0 h-10"
+                        onClick={() => { navigator.clipboard.writeText(PIX_KEY_DISPLAY); toast.success('Chave PIX copiada!'); }}>
+                        <Copy className="w-3.5 h-3.5" />Copiar
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 text-sm text-emerald-900">
+                    <p className="font-semibold text-xs text-muted-foreground uppercase tracking-wide">Como pagar:</p>
+                    <p className="text-xs">1. Escaneie o QR Code ou copie a chave PIX acima</p>
+                    <p className="text-xs">2. No seu banco, informe o <strong>valor total</strong> dos materiais selecionados</p>
+                    <p className="text-xs">3. Finalize o pagamento e envie o comprovante ao coordenador</p>
+                    <p className="text-xs">4. Aguarde a confirmação — o status do pedido será atualizado</p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Filters */}
