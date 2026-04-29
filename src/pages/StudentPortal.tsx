@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { QRCodeSVG } from 'qrcode.react';
+import QRCode from 'react-qr-code';
 import {
   LogOut, User, CreditCard, FileText, CheckCircle2, Clock,
   Upload, Trash2, Eye, BookOpen, ChevronRight, GraduationCap, Save,
@@ -561,7 +561,7 @@ const StudentPortal = () => {
                 <div className="flex flex-col sm:flex-row gap-5 items-start">
                   <div className="flex flex-col items-center gap-2 flex-shrink-0">
                     <div className="p-3 bg-white rounded-2xl shadow-sm border border-border">
-                      <QRCodeSVG value={PIX_PAYLOAD} size={140} level="M" />
+                      <QRCode value={PIX_PAYLOAD} size={140} level="M" />
                     </div>
                     <span className="text-xs text-muted-foreground">Escaneie para pagar</span>
                   </div>
