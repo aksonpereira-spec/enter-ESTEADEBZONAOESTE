@@ -369,7 +369,8 @@ const MensalidadeTab = () => {
   useEffect(() => { loadBase(); }, [loadBase]);
   useEffect(() => { loadMensalidades(); }, [loadMensalidades]);
 
-  const filteredAlunos = selectedTurma === 'all' ? alunos : alunos.filter(a => a.turmaId === selectedTurma);
+  const filteredAlunos = (selectedTurma === 'all' ? alunos : alunos.filter(a => a.turmaId === selectedTurma))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
   const getMensalidade = (id: string) => mensalidades.find(m => m.alunoId === id);
 
   const pagos = filteredAlunos.filter(a => getMensalidade(a.id)?.situacao === 'Pago');
