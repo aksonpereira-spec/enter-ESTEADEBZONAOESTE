@@ -391,8 +391,8 @@ const LojaAluno = () => {
         {/* LOJA screen */}
         {screen === 'loja' && (
           <div className="space-y-5">
-            {/* Banner */}
-            <div className="rounded-2xl overflow-hidden shadow-md">
+            {/* Banner fixo canto inferior esquerdo */}
+            <div className="fixed bottom-4 left-4 z-30 w-32 rounded-xl overflow-hidden shadow-lg border border-border">
               <img
                 src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100037752/f276680e-61f2-45.png"
                 alt="Uniformes Oficiais ESTEADEB"
