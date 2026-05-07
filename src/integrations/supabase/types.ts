@@ -3425,6 +3425,37 @@ export type Database = {
         }
         Relationships: []
       }
+      honorarios_pagamentos: {
+        Row: {
+          created_at: string | null
+          disciplina_turma_id: string | null
+          id: string
+          mes: string
+          pago_em: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          disciplina_turma_id?: string | null
+          id?: string
+          mes: string
+          pago_em?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          disciplina_turma_id?: string | null
+          id?: string
+          mes?: string
+          pago_em?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "honorarios_pagamentos_disciplina_turma_id_fkey"
+            columns: ["disciplina_turma_id"]
+            referencedRelation: "disciplinas_turma"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loja_pedidos: {
         Row: {
           created_at: string | null
@@ -3881,7 +3912,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_27: {
+      messages_2026_05_06: {
         Row: {
           event: string | null
           extension: string
@@ -3914,7 +3945,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_28: {
+      messages_2026_05_07: {
         Row: {
           event: string | null
           extension: string
@@ -3947,7 +3978,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_29: {
+      messages_2026_05_08: {
         Row: {
           event: string | null
           extension: string
@@ -3980,7 +4011,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_30: {
+      messages_2026_05_09: {
         Row: {
           event: string | null
           extension: string
@@ -4013,7 +4044,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_01: {
+      messages_2026_05_10: {
         Row: {
           event: string | null
           extension: string

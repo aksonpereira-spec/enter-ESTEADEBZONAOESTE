@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   BarChart3, TrendingUp, DollarSign, RefreshCw, Filter,
   AlertCircle, ChevronDown, ChevronUp, Users, BookOpen, Percent, FileSpreadsheet,
+  Check, X, CalendarX,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,8 +42,10 @@ interface FinanceRow {
 }
 
 interface DiscHonorario {
+  disciplinaTurmaId: string;
   turmaId: string; turmaName: string; moduloNome: string;
   nome: string; professor: string; honorario: number;
+  pago: boolean; pagoEm?: string;
 }
 
 interface MensalidadeExport {
@@ -59,6 +62,7 @@ const FinanceiroTab = () => {
   const [finance, setFinance] = useState<FinanceRow | null>(null);
   const [discHonorarios, setDiscHonorarios] = useState<DiscHonorario[]>([]);
   const [mensalidadesExport, setMensalidadesExport] = useState<MensalidadeExport[]>([]);
+  const [hasChamadas, setHasChamadas] = useState(false);
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -74,10 +78,16 @@ const FinanceiroTab = () => {
   const loadData = useCallback(async () => {
     setLoading(true); setLoadError('');
 
-    const [tRes, mRes, aRes] = await Promise.all([
+    const [y, m] = selectedMonth.split('-');
+    const mesStart = `${y}-${m}-01`;
+    const nextM = parseInt(m) === 12 ? `${parseInt(y)+1}-01-01` : `${y}-${String(parseInt(m)+1).padStart(2,'0')}-01`;
+
+    const [tRes, mRes, aRes, sessRes, pagRes] = await Promise.all([
       supabase.from('classes').select('*').order('nome'),
       supabase.from('mensalidades').select('*').eq('mes', selectedMonth),
       supabase.from('alunos').select('id, nome, matricula, turma_id').eq('ativo', true),
+      supabase.from('attendance_sessions').select('turma_id').gte('data', mesStart).lt('data', nextM),
+      supabase.from('honorarios_pagamentos').select('disciplina_turma_id, pago_em').eq('mes', selectedMonth),
     ]);
 
     if (tRes.error || mRes.error) {
@@ -93,6 +103,15 @@ const FinanceiroTab = () => {
     }));
     setTurmas(allTurmas);
 
+    // Turmas que tiveram chamada neste mês
+    const turmasComChamada = new Set((sessRes.data || []).map(s => s.turma_id));
+    setHasChamadas(turmasComChamada.size > 0);
+
+    // Pagamentos já registrados neste mês
+    const pagosMap = new Map<string, string>(
+      (pagRes.data || []).map(p => [p.disciplina_turma_id, p.pago_em])
+    );
+
     // Load disciplines honorários
     const turmaIds = selectedTurma === 'all'
       ? allTurmas.map(t => t.id)
@@ -105,13 +124,18 @@ const FinanceiroTab = () => {
 
     const discs: DiscHonorario[] = [];
     (modsData || []).forEach(mod => {
+      // Só mostra disciplinas de turmas que tiveram chamada neste mês
+      if (!turmasComChamada.has(mod.turma_id)) return;
       const turma = allTurmas.find(t => t.id === mod.turma_id);
       ((mod.disciplinas_turma as { id: string; nome: string; professor: string; honorario: number }[]) || []).forEach(d => {
         if ((Number(d.honorario) || 0) > 0) {
           discs.push({
+            disciplinaTurmaId: d.id,
             turmaId: mod.turma_id, turmaName: turma?.nome || '—',
             moduloNome: mod.nome, nome: d.nome, professor: d.professor || '—',
             honorario: Number(d.honorario) || 0,
+            pago: pagosMap.has(d.id),
+            pagoEm: pagosMap.get(d.id),
           });
         }
       });
@@ -136,42 +160,42 @@ const FinanceiroTab = () => {
     const turmaMap = Object.fromEntries(allTurmas.map(t => [t.id, t]));
     const exportRows: MensalidadeExport[] = filteredAlunoIds.map(alunoId => {
       const aluno = alunoMap[alunoId];
-      const m = mensalidades.find(x => x.aluno_id === alunoId);
+      const ms = mensalidades.find(x => x.aluno_id === alunoId);
       const turma = aluno?.turma_id ? turmaMap[aluno.turma_id] : null;
       return {
         matricula: aluno?.matricula || '',
         nome: aluno?.nome || '',
         turma: turma?.nome || '—',
-        situacao: m?.situacao || 'Pendente',
-        dinheiro: Number(m?.dinheiro) || 0,
-        pix: Number(m?.pix_deposito) || 0,
-        cartAss: Number(m?.cartao_assinatura) || 0,
-        cartDeb: Number(m?.cartao_debito) || 0,
-        total: Number(m?.valor) || 0,
-        apostilas: m?.apostilas || 'Não',
-        qtdApostilas: Number(m?.qtd_apostilas) || 0,
-        obs: m?.obs || '',
+        situacao: ms?.situacao || 'Pendente',
+        dinheiro: Number(ms?.dinheiro) || 0,
+        pix: Number(ms?.pix_deposito) || 0,
+        cartAss: Number(ms?.cartao_assinatura) || 0,
+        cartDeb: Number(ms?.cartao_debito) || 0,
+        total: Number(ms?.valor) || 0,
+        apostilas: ms?.apostilas || 'Não',
+        qtdApostilas: Number(ms?.qtd_apostilas) || 0,
+        obs: ms?.obs || '',
       };
     });
     setMensalidadesExport(exportRows);
 
-    mensalidades.forEach(m => {
-      const d = Number(m.dinheiro) || 0;
-      const p = Number(m.pix_deposito) || 0;
-      const ca = Number(m.cartao_assinatura) || 0;
-      const cd = Number(m.cartao_debito) || 0;
+    mensalidades.forEach(ms => {
+      const d = Number(ms.dinheiro) || 0;
+      const p = Number(ms.pix_deposito) || 0;
+      const ca = Number(ms.cartao_assinatura) || 0;
+      const cd = Number(ms.cartao_debito) || 0;
       if (d > 0) { dinheiroTotal += d; dinheiroQtd++; }
       if (p > 0) { pixTotal += p; pixQtd++; }
       if (ca > 0) { cartAssTotal += ca; cartAssQtd++; }
       if (cd > 0) { cartDebTotal += cd; cartDebQtd++; }
-      totalApostilas += Number(m.qtd_apostilas) || 0;
+      totalApostilas += Number(ms.qtd_apostilas) || 0;
     });
 
     const cartAssLiq = cartAssTotal * (1 - TAXA_ASSINATURA);
     const cartDebLiq = cartDebTotal * (1 - TAXA_DEBITO);
     const totalBruto = dinheiroTotal + pixTotal + cartAssTotal + cartDebTotal;
     const totalLiquido = dinheiroTotal + pixTotal + cartAssLiq + cartDebLiq;
-    const totalPagos = mensalidades.filter(m => m.situacao === 'Pago').length;
+    const totalPagos = mensalidades.filter(ms => ms.situacao === 'Pago').length;
     const totalAlunos = filteredAlunoIds.length;
 
     setFinance({
@@ -185,9 +209,28 @@ const FinanceiroTab = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ── Dar Baixa / Desfazer Baixa ──────────────────────────────────────────────
+  const darBaixa = async (disciplinaTurmaId: string) => {
+    const { error } = await supabase.from('honorarios_pagamentos')
+      .insert({ disciplina_turma_id: disciplinaTurmaId, mes: selectedMonth });
+    if (error) { toast.error('Erro ao dar baixa'); return; }
+    toast.success('Honorário dado baixa');
+    loadData();
+  };
+
+  const desfazerBaixa = async (disciplinaTurmaId: string) => {
+    const { error } = await supabase.from('honorarios_pagamentos')
+      .delete().eq('disciplina_turma_id', disciplinaTurmaId).eq('mes', selectedMonth);
+    if (error) { toast.error('Erro ao desfazer baixa'); return; }
+    toast.success('Baixa desfeita');
+    loadData();
+  };
+
   const comissao = finance ? finance.totalLiquido * (parseFloat(commissaoPerc) / 100) : 0;
   const turmasFiltradas = selectedTurma === 'all' ? turmas : turmas.filter(t => t.id === selectedTurma);
   const totalHonorarios = discHonorarios.reduce((s, d) => s + d.honorario, 0);
+  const totalPendente = discHonorarios.filter(d => !d.pago).reduce((s, d) => s + d.honorario, 0);
+  const totalBaixado = discHonorarios.filter(d => d.pago).reduce((s, d) => s + d.honorario, 0);
 
   const fmt = (v: number) => `R$ ${v.toFixed(2).replace('.',',')}`;
 
@@ -250,22 +293,23 @@ const FinanceiroTab = () => {
       doc.text('HONORARIOS DOS PROFESSORES', 15, y); y+=8;
       doc.setFillColor(30,64,175); doc.rect(15,y,180,7,'F');
       doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
-      doc.text('Turma / Modulo',17,y+5); doc.text('Disciplina',80,y+5); doc.text('Professor',130,y+5); doc.text('Honorario',170,y+5); y+=7;
+      doc.text('Turma / Modulo',17,y+5); doc.text('Disciplina',75,y+5); doc.text('Professor',120,y+5); doc.text('Honorario',155,y+5); doc.text('Situacao',177,y+5); y+=7;
       doc.setTextColor(0,0,0);
       discHonorarios.forEach((d,i) => {
         if (y > 270) { doc.addPage(); y = 15; }
         doc.setFillColor(i%2===0?255:248); doc.rect(15,y,180,6.5,'F');
         doc.setFontSize(7.5); doc.setFont('helvetica','normal');
-        doc.text(`${d.turmaName} — ${d.moduloNome}`.substring(0,35),17,y+4.5);
-        doc.text(d.nome.substring(0,25),80,y+4.5);
-        doc.text(d.professor.substring(0,20),130,y+4.5);
-        doc.text(`R$ ${d.honorario.toFixed(2).replace('.',',')}`,170,y+4.5); y+=6.5;
+        doc.text(`${d.turmaName} — ${d.moduloNome}`.substring(0,30),17,y+4.5);
+        doc.text(d.nome.substring(0,20),75,y+4.5);
+        doc.text(d.professor.substring(0,18),120,y+4.5);
+        doc.text(`R$ ${d.honorario.toFixed(2).replace('.',',')}`,155,y+4.5);
+        doc.text(d.pago ? 'Baixado' : 'Pendente',177,y+4.5); y+=6.5;
       });
       y+=3;
       doc.setFillColor(15,40,120); doc.rect(15,y,180,7,'F');
       doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','bold');
       doc.text('TOTAL HONORARIOS',17,y+5);
-      doc.text(`R$ ${totalHonorarios.toFixed(2).replace('.',',')}`,170,y+5);
+      doc.text(`R$ ${totalHonorarios.toFixed(2).replace('.',',')}`,155,y+5);
     }
 
     doc.save(`Financeiro_${mesLab.replace(' ','_')}.pdf`);
@@ -279,7 +323,6 @@ const FinanceiroTab = () => {
     const wb = XLSX.utils.book_new();
     const mesLab = mesLabel(selectedMonth);
 
-    // Sheet 1: Resumo
     const resumoData = [
       ['RESUMO FINANCEIRO — ' + mesLab],
       [],
@@ -294,6 +337,8 @@ const FinanceiroTab = () => {
       [],
       ['Comissão Coordenador (' + commissaoPerc + '%)', comissao],
       ['Total Honorários Professores', totalHonorarios],
+      ['Total Honorários Baixados', totalBaixado],
+      ['Total Honorários Pendentes', totalPendente],
       [],
       ['Alunos Ativos', finance.totalAlunos],
       ['Alunos Pagos', finance.totalPagos],
@@ -301,14 +346,13 @@ const FinanceiroTab = () => {
     ];
     if (discHonorarios.length > 0) {
       resumoData.push([]);
-      resumoData.push(['HONORÁRIOS POR DISCIPLINA', '', '', '']);
-      resumoData.push(['Turma', 'Módulo', 'Disciplina', 'Professor', 'Honorário']);
-      discHonorarios.forEach(d => resumoData.push([d.turmaName, d.moduloNome, d.nome, d.professor, d.honorario]));
+      resumoData.push(['HONORÁRIOS POR DISCIPLINA', '', '', '', '']);
+      resumoData.push(['Turma', 'Módulo', 'Disciplina', 'Professor', 'Honorário', 'Situação']);
+      discHonorarios.forEach(d => resumoData.push([d.turmaName, d.moduloNome, d.nome, d.professor, d.honorario, d.pago ? 'Baixado' : 'Pendente']));
     }
     const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
     XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
 
-    // Sheet 2: Mensalidades por Aluno
     const mensHeader = ['Matrícula', 'Nome', 'Turma', 'Situação', 'Dinheiro (R$)', 'Pix/Dep. (R$)', 'Cart. Ass. (R$)', 'Cart. Déb. (R$)', 'Total (R$)', 'Apostilas', 'Qtd Apostilas', 'Observações'];
     const mensRows = mensalidadesExport.map(r => [
       r.matricula, r.nome, r.turma, r.situacao,
@@ -318,7 +362,6 @@ const FinanceiroTab = () => {
     const wsMens = XLSX.utils.aoa_to_sheet([mensHeader, ...mensRows]);
     XLSX.utils.book_append_sheet(wb, wsMens, 'Mensalidades');
 
-    // Sheet 3: Apostilas
     const apostHeader = ['Matrícula', 'Nome', 'Turma', 'Mês', 'Qtd Apostilas'];
     const apostRows = mensalidadesExport
       .filter(r => r.apostilas === 'Sim' && r.qtdApostilas > 0)
@@ -499,16 +542,42 @@ const FinanceiroTab = () => {
 
           {/* Honorários dos professores por disciplina */}
           <div className="content-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border bg-muted/20">
-              <p className="font-semibold text-foreground flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />Honorários dos Professores
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">Valores definidos por disciplina nas turmas</p>
+            <div className="px-4 py-3 border-b border-border bg-muted/20 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <p className="font-semibold text-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4 text-primary" />Honorários dos Professores
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Aparece somente após a primeira chamada do mês ser lançada
+                </p>
+              </div>
+              {discHonorarios.length > 0 && (
+                <div className="flex gap-3 text-xs flex-wrap">
+                  {totalPendente > 0 && (
+                    <span className="flex items-center gap-1 text-amber-600 font-semibold">
+                      Pendente: {fmt(totalPendente)}
+                    </span>
+                  )}
+                  {totalBaixado > 0 && (
+                    <span className="flex items-center gap-1 text-emerald-600 font-semibold">
+                      <Check className="w-3 h-3" />Baixado: {fmt(totalBaixado)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-            {discHonorarios.length === 0 ? (
+
+            {/* Sem chamadas no mês */}
+            {!hasChamadas ? (
+              <div className="empty-state py-8">
+                <CalendarX className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm font-medium">Nenhuma chamada registrada em {mesLabel(selectedMonth)}</p>
+                <p className="text-xs text-muted-foreground mt-1">Os honorários aparecem após a primeira chamada do mês ser lançada na aba Chamada</p>
+              </div>
+            ) : discHonorarios.length === 0 ? (
               <div className="empty-state py-8">
                 <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">Nenhum honorário cadastrado nas disciplinas</p>
+                <p className="text-sm">Nenhum honorário cadastrado nas disciplinas das turmas com chamada</p>
                 <p className="text-xs text-muted-foreground mt-1">Acesse a aba Turmas → Módulos para definir honorários por disciplina</p>
               </div>
             ) : (
@@ -521,18 +590,45 @@ const FinanceiroTab = () => {
                       <th className="table-th text-left">Disciplina</th>
                       <th className="table-th text-left hidden md:table-cell">Professor</th>
                       <th className="table-th text-right">Honorário</th>
+                      <th className="table-th text-center">Situação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {discHonorarios.map((d, i) => (
-                      <tr key={i} className="table-row">
+                      <tr key={i} className={`table-row ${d.pago ? 'bg-emerald-50/40' : ''}`}>
                         <td className="table-td">
                           <p className="font-medium text-sm text-foreground">{d.turmaName}</p>
                         </td>
                         <td className="table-td hidden sm:table-cell text-sm text-muted-foreground">{d.moduloNome}</td>
                         <td className="table-td text-sm text-foreground">{d.nome}</td>
                         <td className="table-td hidden md:table-cell text-sm text-muted-foreground">{d.professor}</td>
-                        <td className="table-td text-right font-semibold text-emerald-600">{fmt(d.honorario)}</td>
+                        <td className="table-td text-right">
+                          <span className={`font-semibold ${d.pago ? 'text-muted-foreground line-through' : 'text-emerald-600'}`}>
+                            {fmt(d.honorario)}
+                          </span>
+                        </td>
+                        <td className="table-td text-center">
+                          {d.pago ? (
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1 rounded-full">
+                                <Check className="w-3 h-3" />Baixado
+                              </span>
+                              <button
+                                onClick={() => desfazerBaixa(d.disciplinaTurmaId)}
+                                className="text-muted-foreground hover:text-red-500 transition-colors"
+                                title="Desfazer baixa"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <Button size="sm" variant="outline"
+                              onClick={() => darBaixa(d.disciplinaTurmaId)}
+                              className="h-7 text-xs gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                              <Check className="w-3 h-3" />Dar Baixa
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -541,6 +637,9 @@ const FinanceiroTab = () => {
                       <tr className="bg-primary/5">
                         <td colSpan={4} className="table-td font-bold text-foreground">Total Honorários</td>
                         <td className="table-td text-right font-bold text-primary">{fmt(totalHonorarios)}</td>
+                        <td className="table-td text-center text-xs text-muted-foreground">
+                          {discHonorarios.filter(d => d.pago).length}/{discHonorarios.length} baixados
+                        </td>
                       </tr>
                     </tfoot>
                   )}
@@ -554,6 +653,7 @@ const FinanceiroTab = () => {
             <div className="content-card p-4 bg-muted/20">
               <p className="text-xs text-muted-foreground font-medium mb-2 flex items-center gap-1.5">
                 <BarChart3 className="w-3.5 h-3.5" />Resumo — {turmasFiltradas.length} turma{turmasFiltradas.length !== 1 ? 's' : ''} | Total honorários: <span className="text-primary font-bold">{fmt(totalHonorarios)}</span>
+                {totalPendente > 0 && <span className="text-amber-600 font-bold ml-2">Pendente: {fmt(totalPendente)}</span>}
               </p>
             </div>
           )}

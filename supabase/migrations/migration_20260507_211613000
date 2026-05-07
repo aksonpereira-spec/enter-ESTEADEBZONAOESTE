@@ -1,0 +1,10 @@
+CREATE TABLE honorarios_pagamentos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  disciplina_turma_id UUID REFERENCES disciplinas_turma(id) ON DELETE CASCADE,
+  mes TEXT NOT NULL,
+  pago_em TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(disciplina_turma_id, mes)
+);
+ALTER TABLE honorarios_pagamentos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all" ON honorarios_pagamentos FOR ALL USING (true) WITH CHECK (true);
