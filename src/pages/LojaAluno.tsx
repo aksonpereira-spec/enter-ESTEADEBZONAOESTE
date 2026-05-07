@@ -391,6 +391,16 @@ const LojaAluno = () => {
         {/* LOJA screen */}
         {screen === 'loja' && (
           <div className="space-y-5">
+            {/* Banner */}
+            <div className="rounded-2xl overflow-hidden shadow-md">
+              <img
+                src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100037752/f276680e-61f2-45.png"
+                alt="Uniformes Oficiais ESTEADEB"
+                className="w-full object-cover"
+                crossOrigin="anonymous"
+              />
+            </div>
+
             <div>
               <h2 className="text-xl font-bold text-foreground">Materiais Disponíveis</h2>
               <p className="text-sm text-muted-foreground mt-0.5">{filtered.length} material(is) encontrado(s)</p>
