@@ -240,18 +240,72 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
             </SelectContent>
           </Select>
         </td>
-        <td className="table-td w-8 text-center">
+        <td className="table-td w-10 text-center">
           <button
             onClick={() => setExpanded(e => !e)}
-            title="Ver observações e apostilas"
-            className={`p-1 rounded-full transition-all ${expanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/60'} ${(hasObs || hasApostilas) ? 'ring-1 ring-amber-300' : ''}`}>
-            {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            title="Ver/editar pagamentos e observações"
+            className={`p-2 rounded-full transition-all touch-manipulation ${expanded ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/60'} ${(hasObs || hasApostilas) ? 'ring-1 ring-amber-300' : ''}`}>
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </td>
       </tr>
       {expanded && (
         <tr className="bg-muted/20 border-t border-dashed border-border/50">
           <td colSpan={8} className="px-4 py-3">
+            {/* Campos de pagamento — visíveis apenas em mobile/tablet onde as colunas ficam ocultas */}
+            <div className="grid grid-cols-2 gap-3 mb-4 sm:hidden">
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1 block">Dinheiro</label>
+                <Input type="number" min="0" step="0.01" placeholder="0,00"
+                  className="h-9 text-right text-sm form-input w-full"
+                  value={dinheiro}
+                  onChange={e => setDinheiro(e.target.value)}
+                  onBlur={e => handleNumBlur('dinheiro', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1 block">Pix / Dep.</label>
+                <Input type="number" min="0" step="0.01" placeholder="0,00"
+                  className="h-9 text-right text-sm form-input w-full"
+                  value={pix}
+                  onChange={e => setPix(e.target.value)}
+                  onBlur={e => handleNumBlur('pix_deposito', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1 block">Cart. Assinatura</label>
+                <Input type="number" min="0" step="0.01" placeholder="0,00"
+                  className="h-9 text-right text-sm form-input w-full"
+                  value={cartAss}
+                  onChange={e => setCartAss(e.target.value)}
+                  onBlur={e => handleNumBlur('cartao_assinatura', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1 block">Cart. Débito</label>
+                <Input type="number" min="0" step="0.01" placeholder="0,00"
+                  className="h-9 text-right text-sm form-input w-full"
+                  value={cartDeb}
+                  onChange={e => setCartDeb(e.target.value)}
+                  onBlur={e => handleNumBlur('cartao_debito', e.target.value)} />
+              </div>
+            </div>
+            {/* Campos de cartão — visíveis apenas em tablet (sm mas não md) */}
+            <div className="hidden sm:grid md:hidden grid-cols-2 gap-3 mb-4">
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1 block">Cart. Assinatura</label>
+                <Input type="number" min="0" step="0.01" placeholder="0,00"
+                  className="h-9 text-right text-sm form-input w-full"
+                  value={cartAss}
+                  onChange={e => setCartAss(e.target.value)}
+                  onBlur={e => handleNumBlur('cartao_assinatura', e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-medium mb-1 block">Cart. Débito</label>
+                <Input type="number" min="0" step="0.01" placeholder="0,00"
+                  className="h-9 text-right text-sm form-input w-full"
+                  value={cartDeb}
+                  onChange={e => setCartDeb(e.target.value)}
+                  onBlur={e => handleNumBlur('cartao_debito', e.target.value)} />
+              </div>
+            </div>
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <label className="text-xs text-muted-foreground whitespace-nowrap font-medium">Apostilas:</label>
