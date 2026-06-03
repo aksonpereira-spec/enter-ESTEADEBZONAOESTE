@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   User, BookOpen, FileText, LogOut, Upload, Trash2, Save,
-  GraduationCap, ChevronRight, Hash, Building2, Phone, Mail,
-  Calendar, MapPin, Heart, Eye, EyeOff, Download, AlertCircle
+  GraduationCap, ChevronRight, Hash, Building2, Phone,
+  MapPin, Heart, Download, AlertCircle
 } from 'lucide-react';
 
 const SESSION_KEY = 'portal_aluno_session';
@@ -90,7 +90,6 @@ const getSituacao = (nota: number | null) => {
 export default function PortalAluno() {
   const [session, setSession] = useState<AlunoSession | null>(null);
   const [matriculaInput, setMatriculaInput] = useState('');
-  const [showSenha, setShowSenha] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('ficha');
 
@@ -193,7 +192,7 @@ export default function PortalAluno() {
 
       if (error) throw error;
       if (!data) {
-        toast.error('Matrícula não encontrada');
+        toast.error('Matrícula não encontrada. Verifique o número e tente novamente.');
         return;
       }
       if (!data.ativo) {
@@ -362,47 +361,33 @@ export default function PortalAluno() {
           <div className="content-card p-6 shadow-lg">
             <div className="space-y-4">
               <div>
-                <Label className="form-label">Matrícula</Label>
+                <Label className="form-label">Número de Matrícula</Label>
                 <Input
-                  className="form-input mt-1"
-                  placeholder="Ex: 260202001"
+                  className="form-input mt-1 text-center text-lg font-mono tracking-widest"
+                  placeholder="Ex: 2026001"
                   value={matriculaInput}
-                  onChange={e => setMatriculaInput(e.target.value)}
+                  onChange={e => setMatriculaInput(e.target.value.trim())}
                   onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  name="matricula-portal"
                   autoFocus
                 />
-              </div>
-              <div>
-                <Label className="form-label">Senha</Label>
-                <div className="relative mt-1">
-                  <Input
-                    className="form-input pr-10"
-                    type={showSenha ? 'text' : 'password'}
-                    placeholder="Sua matrícula é a senha"
-                    value={matriculaInput}
-                    onChange={e => setMatriculaInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSenha(s => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
-                    {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
                 <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  A senha é o número da sua matrícula
+                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                  Digite apenas o número da matrícula (ex: 2026001)
                 </p>
               </div>
               <Button
                 onClick={handleLogin}
-                disabled={loading}
+                disabled={loading || !matriculaInput.trim()}
                 className="w-full btn-primary gap-2 h-10">
                 {loading ? (
                   <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                 ) : <ChevronRight className="w-4 h-4" />}
-                {loading ? 'Entrando...' : 'Entrar'}
+                {loading ? 'Verificando...' : 'Acessar Portal'}
               </Button>
             </div>
             <p className="text-xs text-center text-muted-foreground mt-4">

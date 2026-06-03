@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Lock, User, LogIn, Shield, BookOpen, GraduationCap, UserPlus, Eye, EyeOff, Hash, ChevronLeft } from 'lucide-react';
+import { Lock, User, LogIn, Shield, BookOpen, GraduationCap, UserPlus, Eye, EyeOff, Hash, ChevronLeft, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 type Mode = 'select' | 'admin' | 'student-login' | 'student-signup';
@@ -127,7 +127,7 @@ const Login = () => {
                 </button>
 
                 <button
-                  onClick={() => setMode('student-login')}
+                  onClick={() => navigate('/portal-aluno')}
                   className="w-full rounded-2xl p-5 text-left transition-all hover:scale-[1.02] group"
                   style={{ background: 'hsl(0 0% 100% / 0.08)', border: '1px solid hsl(0 0% 100% / 0.15)' }}
                 >
@@ -137,9 +137,9 @@ const Login = () => {
                     </div>
                     <div>
                       <p className="text-white font-semibold text-sm">Portal do Aluno</p>
-                      <p className="text-white/40 text-xs mt-0.5">Acompanhe seu cadastro e financeiro</p>
+                      <p className="text-white/40 text-xs mt-0.5">Acesse com seu número de matrícula</p>
                     </div>
-                    <LogIn className="w-4 h-4 text-white/30 ml-auto group-hover:text-white/60 transition-colors" />
+                    <ExternalLink className="w-4 h-4 text-white/30 ml-auto group-hover:text-white/60 transition-colors" />
                   </div>
                 </button>
               </div>
