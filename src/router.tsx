@@ -3,6 +3,7 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import StudentPortal from "./pages/StudentPortal";
 import LojaAluno from "./pages/LojaAluno";
+import Download from "./pages/Download";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export const routers = [
@@ -25,6 +26,11 @@ export const routers = [
       path: "/loja",
       name: 'loja-aluno',
       element: <LojaAluno />,
+    },
+    {
+      path: "/download",
+      name: 'download',
+      element: <Download />,
     },
     /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
     {
