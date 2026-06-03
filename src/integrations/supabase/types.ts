@@ -3621,6 +3621,43 @@ export type Database = {
           },
         ]
       }
+      notas_aluno: {
+        Row: {
+          aluno_id: string
+          created_at: string | null
+          disciplina_nome: string
+          disciplina_numero: number | null
+          id: string
+          nota: number | null
+          periodo: string | null
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string | null
+          disciplina_nome?: string
+          disciplina_numero?: number | null
+          id?: string
+          nota?: number | null
+          periodo?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string | null
+          disciplina_nome?: string
+          disciplina_numero?: number | null
+          id?: string
+          nota?: number | null
+          periodo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_aluno_aluno_id_fkey"
+            columns: ["aluno_id"]
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       nucleo_config: {
         Row: {
           ano: number | null
@@ -3647,6 +3684,40 @@ export type Database = {
           nome_nucleo?: string | null
         }
         Relationships: []
+      }
+      portal_arquivos: {
+        Row: {
+          aluno_id: string
+          id: string
+          nome_arquivo: string | null
+          storage_path: string | null
+          uploaded_at: string | null
+          url: string | null
+        }
+        Insert: {
+          aluno_id: string
+          id?: string
+          nome_arquivo?: string | null
+          storage_path?: string | null
+          uploaded_at?: string | null
+          url?: string | null
+        }
+        Update: {
+          aluno_id?: string
+          id?: string
+          nome_arquivo?: string | null
+          storage_path?: string | null
+          uploaded_at?: string | null
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_arquivos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       student_documents: {
         Row: {
@@ -3912,7 +3983,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_06: {
+      messages_2026_05_31: {
         Row: {
           event: string | null
           extension: string
@@ -3945,7 +4016,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_07: {
+      messages_2026_06_01: {
         Row: {
           event: string | null
           extension: string
@@ -3978,7 +4049,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_08: {
+      messages_2026_06_02: {
         Row: {
           event: string | null
           extension: string
@@ -4011,7 +4082,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_09: {
+      messages_2026_06_03: {
         Row: {
           event: string | null
           extension: string
@@ -4044,7 +4115,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_10: {
+      messages_2026_06_04: {
         Row: {
           event: string | null
           extension: string

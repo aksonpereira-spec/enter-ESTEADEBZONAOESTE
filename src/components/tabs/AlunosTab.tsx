@@ -5,8 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX, Hash, Wand2, Pencil } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX, Hash, Wand2, Pencil, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
+
+interface Nota {
+  id: string;
+  disciplina_nome: string;
+  disciplina_numero: number;
+  nota: number | null;
+  periodo: string;
+}
 
 const emptyForm = {
   nome: '', matricula: '', telefone: '', email: '',
@@ -57,6 +67,58 @@ const AlunosTab = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [generatingMatricula, setGeneratingMatricula] = useState(false);
   const [generatingAllMatriculas, setGeneratingAllMatriculas] = useState(false);
+
+  // Notas state
+  const [notasDialog, setNotasDialog] = useState<{ alunoId: string; nome: string } | null>(null);
+  const [notas, setNotas] = useState<Nota[]>([]);
+  const [notaForm, setNotaForm] = useState({ disciplina_nome: '', disciplina_numero: 1, nota: '', periodo: String(new Date().getFullYear()) });
+  const [savingNota, setSavingNota] = useState(false);
+
+  const loadNotas = async (alunoId: string) => {
+    const { data } = await supabase.from('notas_aluno').select('*')
+      .eq('aluno_id', alunoId).order('disciplina_numero', { ascending: true });
+    setNotas(data || []);
+  };
+
+  const handleOpenNotas = (a: Aluno) => {
+    setNotasDialog({ alunoId: a.id, nome: a.nome });
+    setNotaForm({ disciplina_nome: '', disciplina_numero: 1, nota: '', periodo: String(new Date().getFullYear()) });
+    loadNotas(a.id);
+  };
+
+  const handleAddNota = async () => {
+    if (!notasDialog || !notaForm.disciplina_nome.trim()) {
+      toast.error('Informe o nome da disciplina');
+      return;
+    }
+    setSavingNota(true);
+    const notaVal = notaForm.nota !== '' ? parseFloat(notaForm.nota) : null;
+    const { error } = await supabase.from('notas_aluno').insert({
+      aluno_id: notasDialog.alunoId,
+      disciplina_nome: notaForm.disciplina_nome.trim(),
+      disciplina_numero: notaForm.disciplina_numero,
+      nota: notaVal,
+      periodo: notaForm.periodo,
+    });
+    if (error) { toast.error('Erro ao salvar nota'); }
+    else {
+      toast.success('Nota adicionada');
+      setNotaForm({ disciplina_nome: '', disciplina_numero: notas.length + 2, nota: '', periodo: notaForm.periodo });
+      loadNotas(notasDialog.alunoId);
+    }
+    setSavingNota(false);
+  };
+
+  const handleDeleteNota = async (id: string) => {
+    await supabase.from('notas_aluno').delete().eq('id', id);
+    if (notasDialog) loadNotas(notasDialog.alunoId);
+  };
+
+  const handleUpdateNota = async (id: string, nota: string) => {
+    const val = nota !== '' ? parseFloat(nota) : null;
+    await supabase.from('notas_aluno').update({ nota: val }).eq('id', id);
+    if (notasDialog) loadNotas(notasDialog.alunoId);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -124,10 +186,6 @@ const AlunosTab = () => {
       const { error } = await supabase.from('alunos').update(payload).eq('id', editingId);
       if (!error) { toast.success('Aluno atualizado'); } else { toast.error('Erro ao salvar'); }
     } else {
-      // Auto-generate matricula if blank
-      if (!payload.matricula) {
-        payload.matricula = await generateMatricula(new Date().getFullYear());
-      }
       const { error } = await supabase.from('alunos').insert(payload);
       if (!error) { toast.success('Aluno cadastrado'); } else { toast.error('Erro ao salvar'); }
     }
@@ -405,6 +463,7 @@ const AlunosTab = () => {
                     </td>
                     <td className="table-td text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenNotas(a)} className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary" title="Gerenciar notas"><GraduationCap className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => edit(a)} className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"><Edit2 className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => del(a.id)} className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -419,6 +478,106 @@ const AlunosTab = () => {
           </div>
         </div>
       )}
+
+      {/* Dialog de Notas */}
+      <Dialog open={!!notasDialog} onOpenChange={open => !open && setNotasDialog(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GraduationCap className="w-5 h-5 text-primary" />
+              Notas — {notasDialog?.nome}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Add nota form */}
+          <div className="border border-border rounded-xl p-4 bg-muted/20 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Adicionar Disciplina</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="form-label">Nr</Label>
+                <Input type="number" className="form-input mt-1" min={1}
+                  value={notaForm.disciplina_numero}
+                  onChange={e => setNotaForm(p => ({ ...p, disciplina_numero: parseInt(e.target.value) || 1 }))} />
+              </div>
+              <div>
+                <Label className="form-label">Período</Label>
+                <Input className="form-input mt-1" placeholder="Ex: 2026"
+                  value={notaForm.periodo}
+                  onChange={e => setNotaForm(p => ({ ...p, periodo: e.target.value }))} />
+              </div>
+            </div>
+            <div>
+              <Label className="form-label">Disciplina</Label>
+              <Input className="form-input mt-1" placeholder="Nome da disciplina"
+                value={notaForm.disciplina_nome}
+                onChange={e => setNotaForm(p => ({ ...p, disciplina_nome: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && handleAddNota()} />
+            </div>
+            <div>
+              <Label className="form-label">Média (deixe vazio se ainda não lançada)</Label>
+              <Input type="number" className="form-input mt-1" placeholder="0.0 – 10.0" step="0.1" min={0} max={10}
+                value={notaForm.nota}
+                onChange={e => setNotaForm(p => ({ ...p, nota: e.target.value }))} />
+            </div>
+            <Button onClick={handleAddNota} disabled={savingNota} className="btn-primary gap-2 w-full">
+              <Plus className="w-4 h-4" />Adicionar Disciplina
+            </Button>
+          </div>
+
+          {/* Notas list */}
+          {notas.length > 0 && (
+            <div className="border border-border rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="table-head">
+                    <th className="table-th text-center w-10">Nr</th>
+                    <th className="table-th text-left">Disciplina</th>
+                    <th className="table-th text-center w-20">Média</th>
+                    <th className="table-th text-center w-16">Período</th>
+                    <th className="table-th w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {notas.map(n => (
+                    <tr key={n.id} className="table-row">
+                      <td className="table-td text-center">
+                        <span className="text-xs font-mono text-muted-foreground">{n.disciplina_numero}</span>
+                      </td>
+                      <td className="table-td">
+                        <span className="text-sm font-medium text-foreground">{n.disciplina_nome}</span>
+                      </td>
+                      <td className="table-td text-center">
+                        <Input
+                          type="number"
+                          className="form-input h-7 text-center w-16 text-sm mx-auto"
+                          step="0.1" min={0} max={10}
+                          defaultValue={n.nota !== null ? String(n.nota) : ''}
+                          onBlur={e => handleUpdateNota(n.id, e.target.value)}
+                        />
+                      </td>
+                      <td className="table-td text-center">
+                        <span className="text-xs text-muted-foreground">{n.periodo}</span>
+                      </td>
+                      <td className="table-td text-center">
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteNota(n.id)}
+                          className="h-7 w-7 p-0 hover:bg-destructive/10 hover:text-destructive">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {notas.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              Nenhuma nota lançada. Use o formulário acima para adicionar.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

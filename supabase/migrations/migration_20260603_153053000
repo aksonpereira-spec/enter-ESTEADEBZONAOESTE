@@ -1,0 +1,44 @@
+
+-- Tabela de notas dos alunos
+CREATE TABLE IF NOT EXISTS notas_aluno (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  aluno_id UUID NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
+  disciplina_nome TEXT NOT NULL DEFAULT '',
+  disciplina_numero INTEGER DEFAULT 1,
+  nota NUMERIC(5,2),
+  periodo TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE notas_aluno ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_notas" ON notas_aluno FOR ALL USING (true) WITH CHECK (true);
+
+-- Tabela de arquivos do portal do aluno
+CREATE TABLE IF NOT EXISTS portal_arquivos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  aluno_id UUID NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
+  nome_arquivo TEXT DEFAULT '',
+  url TEXT DEFAULT '',
+  storage_path TEXT DEFAULT '',
+  uploaded_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE portal_arquivos ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_portal_arquivos" ON portal_arquivos FOR ALL USING (true) WITH CHECK (true);
+
+-- Adicionar política permissiva para INSERT em student_profiles (via portal sem auth)
+CREATE POLICY "portal_insert_profiles" ON student_profiles
+FOR INSERT WITH CHECK (true);
+
+-- Bucket de armazenamento para documentos do portal
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('portal-docs', 'portal-docs', true, 20971520)
+ON CONFLICT (id) DO NOTHING;
+
+-- Políticas de storage para uploads anônimos
+CREATE POLICY "portal_docs_insert" ON storage.objects
+FOR INSERT WITH CHECK (bucket_id = 'portal-docs');
+
+CREATE POLICY "portal_docs_select" ON storage.objects
+FOR SELECT USING (bucket_id = 'portal-docs');
+
+CREATE POLICY "portal_docs_delete" ON storage.objects
+FOR DELETE USING (bucket_id = 'portal-docs');

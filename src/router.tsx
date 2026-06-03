@@ -4,6 +4,7 @@ import NotFound from "./pages/NotFound";
 import StudentPortal from "./pages/StudentPortal";
 import LojaAluno from "./pages/LojaAluno";
 import Download from "./pages/Download";
+import PortalAluno from "./pages/PortalAluno";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export const routers = [
@@ -26,6 +27,11 @@ export const routers = [
       path: "/loja",
       name: 'loja-aluno',
       element: <LojaAluno />,
+    },
+    {
+      path: "/portal-aluno",
+      name: 'portal-aluno',
+      element: <PortalAluno />,
     },
     {
       path: "/download",
