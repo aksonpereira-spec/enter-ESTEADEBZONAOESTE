@@ -3235,6 +3235,36 @@ export type Database = {
           },
         ]
       }
+      calendario_aulas: {
+        Row: {
+          created_at: string | null
+          data_aula: string
+          disciplina: string | null
+          id: string
+          obs: string | null
+          professor: string | null
+          provas_disciplinas: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_aula: string
+          disciplina?: string | null
+          id?: string
+          obs?: string | null
+          professor?: string | null
+          provas_disciplinas?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_aula?: string
+          disciplina?: string | null
+          id?: string
+          obs?: string | null
+          professor?: string | null
+          provas_disciplinas?: string | null
+        }
+        Relationships: []
+      }
       classes: {
         Row: {
           created_at: string | null

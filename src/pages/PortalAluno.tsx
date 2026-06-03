@@ -10,7 +10,7 @@ import {
   User, BookOpen, FileText, LogOut, Upload, Trash2, Save,
   GraduationCap, ChevronRight, Hash, Building2, Phone,
   MapPin, Heart, Download, AlertCircle, Star, TrendingUp,
-  TrendingDown, Award, AlertTriangle
+  TrendingDown, Award, AlertTriangle, CalendarDays, Clock
 } from 'lucide-react';
 
 const SESSION_KEY = 'portal_aluno_session';
@@ -72,6 +72,15 @@ interface Arquivo {
   uploaded_at: string;
 }
 
+interface Evento {
+  id: string;
+  data_aula: string;
+  professor: string;
+  disciplina: string;
+  obs: string;
+  provas_disciplinas: string;
+}
+
 const emptyProfile: ProfileData = {
   nome_completo: '', cpf: '', rg: '', orgao_expedidor: '', data_nascimento: '',
   cidade_nascimento: '', uf_nascimento: '', sexo: '', estado_civil: '', profissao: '',
@@ -126,6 +135,14 @@ export default function PortalAluno() {
   const [arquivos, setArquivos] = useState<Arquivo[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Calendário
+  const [eventos, setEventos] = useState<Evento[]>([]);
+
+  const loadCalendario = useCallback(async () => {
+    const { data } = await supabase.from('calendario_aulas').select('*').order('data_aula', { ascending: true });
+    setEventos(data || []);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
@@ -191,8 +208,9 @@ export default function PortalAluno() {
       loadProfile(session.alunoId);
       loadNotas(session.alunoId);
       loadArquivos(session.alunoId);
+      loadCalendario();
     }
-  }, [session, loadProfile, loadNotas, loadArquivos]);
+  }, [session, loadProfile, loadNotas, loadArquivos, loadCalendario]);
 
   const handleLogin = async () => {
     if (!matriculaInput.trim()) {
@@ -449,21 +467,26 @@ export default function PortalAluno() {
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full mb-6 grid grid-cols-3">
+          <TabsList className="w-full mb-6 grid grid-cols-4">
             <TabsTrigger value="ficha" className="gap-1.5 text-xs sm:text-sm">
               <User className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Minha Ficha</span>
-              <span className="xs:hidden">Ficha</span>
+              <span className="hidden sm:inline">Minha Ficha</span>
+              <span className="sm:hidden">Ficha</span>
             </TabsTrigger>
             <TabsTrigger value="notas" className="gap-1.5 text-xs sm:text-sm">
               <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Minhas Notas</span>
-              <span className="xs:hidden">Notas</span>
+              <span className="hidden sm:inline">Notas</span>
+              <span className="sm:hidden">Notas</span>
+            </TabsTrigger>
+            <TabsTrigger value="calendario" className="gap-1.5 text-xs sm:text-sm">
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Calendário</span>
+              <span className="sm:hidden">Agenda</span>
             </TabsTrigger>
             <TabsTrigger value="documentos" className="gap-1.5 text-xs sm:text-sm">
               <FileText className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Documentos</span>
-              <span className="xs:hidden">Docs</span>
+              <span className="hidden sm:inline">Documentos</span>
+              <span className="sm:hidden">Docs</span>
             </TabsTrigger>
           </TabsList>
 
@@ -870,6 +893,137 @@ export default function PortalAluno() {
                 )}
               </div>
             </div>
+          </TabsContent>
+
+          {/* ── TAB CALENDÁRIO ── */}
+          <TabsContent value="calendario">
+            {(() => {
+              const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+              const today = new Date(); today.setHours(0,0,0,0);
+
+              // Group events by month
+              const groups: Record<string, Evento[]> = {};
+              eventos.forEach(e => {
+                const d = new Date(e.data_aula + 'T00:00:00');
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(e);
+              });
+
+              if (Object.keys(groups).length === 0) return (
+                <div className="empty-state py-16">
+                  <CalendarDays className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium">Nenhum evento disponível</p>
+                </div>
+              );
+
+              return (
+                <div className="space-y-1 mb-4">
+                  {/* Title banner */}
+                  <div className="rounded-2xl p-5 mb-6 text-center"
+                    style={{ background: 'linear-gradient(135deg, hsl(220 70% 20%), hsl(220 70% 30%))' }}>
+                    <p className="text-white/70 text-sm font-medium mb-1">Segue o calendário das próximas aulas,</p>
+                    <p className="text-white font-bold text-xl" style={{ color: '#f0a500' }}>se organizem!</p>
+                  </div>
+
+                  <div className="space-y-8">
+                    {Object.entries(groups).map(([key, evs]) => {
+                      const [year, month] = key.split('-').map(Number);
+                      const lastDayOfMonth = new Date(year, month, 0);
+                      const isPast = lastDayOfMonth < today;
+                      const isCurrent = !isPast && new Date(year, month - 1, 1) <= today;
+
+                      const monthLabel = `${MESES_PT[month-1].toUpperCase()} ${year}`;
+
+                      return (
+                        <div key={key} className={`transition-all ${isPast ? 'opacity-40 grayscale' : ''}`}>
+                          {/* Month header */}
+                          <div className="flex items-center gap-2 mb-4">
+                            <Clock className={`w-5 h-5 ${isPast ? 'text-muted-foreground' : isCurrent ? 'text-primary' : 'text-primary'}`} />
+                            <h3 className={`font-extrabold text-lg tracking-wide ${
+                              isPast ? 'text-muted-foreground' : 'text-foreground'
+                            }`} style={!isPast ? { color: 'hsl(220 70% 30%)' } : undefined}>
+                              {monthLabel}
+                            </h3>
+                            {isPast && (
+                              <span className="text-xs bg-muted text-muted-foreground px-2.5 py-0.5 rounded-full">Passado</span>
+                            )}
+                          </div>
+
+                          {/* Events grid */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {evs.map(ev => {
+                              const d = new Date(ev.data_aula + 'T00:00:00');
+                              const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                              const isToday = d.getTime() === today.getTime();
+                              const isFuture = d > today;
+
+                              return (
+                                <div key={ev.id} className={`rounded-2xl border p-4 transition-all ${
+                                  isPast
+                                    ? 'bg-card border-border'
+                                    : isToday
+                                    ? 'border-primary/50 shadow-md'
+                                    : isFuture
+                                    ? 'bg-card border-border shadow-sm hover:shadow-md hover:-translate-y-0.5'
+                                    : 'bg-card border-border'
+                                }`}
+                                style={!isPast && isFuture ? {
+                                  borderColor: 'hsl(220 70% 80%)',
+                                  background: 'hsl(220 70% 98%)'
+                                } : undefined}>
+                                  {/* Date */}
+                                  <p className="text-xs font-mono font-semibold mb-3"
+                                    style={!isPast ? { color: 'hsl(220 60% 45%)' } : undefined}>
+                                    {dateStr}
+                                    {isToday && <span className="ml-2 text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">Hoje</span>}
+                                  </p>
+
+                                  {/* Professor */}
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                      isPast ? 'bg-muted' : 'bg-blue-100'
+                                    }`}>
+                                      <span className="text-xs font-bold" style={!isPast ? { color: 'hsl(220 60% 40%)' } : undefined}>
+                                        {ev.professor.charAt(0)}
+                                      </span>
+                                    </div>
+                                    <span className="font-bold text-sm text-foreground">{ev.professor}</span>
+                                  </div>
+
+                                  {/* Discipline */}
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <BookOpen className={`w-3.5 h-3.5 flex-shrink-0 ${isPast ? 'text-muted-foreground' : 'text-muted-foreground'}`} />
+                                    <span className="text-sm text-muted-foreground">{ev.disciplina}</span>
+                                  </div>
+
+                                  {/* Obs */}
+                                  {ev.obs && (
+                                    <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3">
+                                      <div className="flex items-start gap-1.5 mb-1.5">
+                                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
+                                        <span className="text-xs font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wide">Observação:</span>
+                                      </div>
+                                      <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">{ev.obs}</p>
+                                      {ev.provas_disciplinas && (
+                                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mt-1.5 flex items-center gap-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+                                          {ev.provas_disciplinas}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </TabsContent>
 
           {/* ── TAB DOCUMENTOS ── */}
