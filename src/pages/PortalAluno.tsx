@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   User, BookOpen, FileText, LogOut, Upload, Trash2, Save,
   GraduationCap, ChevronRight, Hash, Building2, Phone,
-  MapPin, Heart, Download, AlertCircle
+  MapPin, Heart, Download, AlertCircle, Star, TrendingUp,
+  TrendingDown, Award, AlertTriangle
 } from 'lucide-react';
 
 const SESSION_KEY = 'portal_aluno_session';
@@ -82,9 +83,26 @@ const emptyProfile: ProfileData = {
 
 const getSituacao = (nota: number | null) => {
   if (nota === null || nota === undefined) return { label: 'Cursando', cls: 'badge-neutro' };
+  if (nota >= 8) return { label: 'Excelente', cls: 'text-emerald-700 bg-emerald-100 border border-emerald-200' };
   if (nota >= 7) return { label: 'Aprovado', cls: 'badge-pago' };
   if (nota >= 5) return { label: 'Exame', cls: 'text-amber-700 bg-amber-100 border border-amber-200' };
   return { label: 'Reprovado', cls: 'badge-inadimplente' };
+};
+
+const getMensagem = (nota: number | null): { texto: string; icon: 'star' | 'up' | 'warn' | 'down' | null } => {
+  if (nota === null || nota === undefined) return { texto: '', icon: null };
+  if (nota >= 8) return {
+    texto: 'Parabéns! Excelente desempenho! Continue assim, você é um exemplo!',
+    icon: 'star',
+  };
+  if (nota >= 7) return {
+    texto: 'Ótimo! Você bateu a média! Você está no caminho certo!',
+    icon: 'up',
+  };
+  return {
+    texto: 'Dedique-se mais aos estudos para alcançar a nota máxima. Você consegue!',
+    icon: nota >= 5 ? 'warn' : 'down',
+  };
 };
 
 export default function PortalAluno() {
@@ -699,101 +717,158 @@ export default function PortalAluno() {
 
           {/* ── TAB NOTAS ── */}
           <TabsContent value="notas">
-            <div className="content-card overflow-hidden">
-              {/* Header */}
-              <div className="p-5 border-b border-border">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <GraduationCap className="w-4 h-4 text-primary" />Situação Escolar
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Aluno: <strong>{session.nome}</strong> — Matrícula: <strong className="font-mono">{session.matricula}</strong>
-                    </p>
-                  </div>
-                  {session.turmaNome && (
-                    <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
-                      {session.turmaNome}
-                    </span>
-                  )}
-                </div>
-              </div>
+            <div className="space-y-4">
 
-              {loadingNotas ? (
-                <div className="flex justify-center py-12">
-                  <div className="loading-spinner" />
+              {/* Overall motivational banner */}
+              {(() => {
+                const comNota = notas.filter(n => n.nota !== null);
+                if (comNota.length === 0) return null;
+                const media = comNota.reduce((s, n) => s + Number(n.nota), 0) / comNota.length;
+                let banner: { bg: string; border: string; icon: React.ReactNode; titulo: string; msg: string };
+                if (media >= 8) {
+                  banner = {
+                    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+                    border: 'border-emerald-200 dark:border-emerald-800',
+                    icon: <Award className="w-6 h-6 text-emerald-600" />,
+                    titulo: `Parabéns, ${session.nome.split(' ')[0]}!`,
+                    msg: `Sua média geral é ${media.toFixed(1)}. Você está com um desempenho excelente! Continue se dedicando e seja um exemplo para seus colegas!`,
+                  };
+                } else if (media >= 7) {
+                  banner = {
+                    bg: 'bg-blue-50 dark:bg-blue-950/30',
+                    border: 'border-blue-200 dark:border-blue-800',
+                    icon: <TrendingUp className="w-6 h-6 text-blue-600" />,
+                    titulo: `Ótimo desempenho, ${session.nome.split(' ')[0]}!`,
+                    msg: `Sua média geral é ${media.toFixed(1)}. Você bateu a média! Continue firme para alcançar notas ainda melhores!`,
+                  };
+                } else {
+                  banner = {
+                    bg: 'bg-amber-50 dark:bg-amber-950/30',
+                    border: 'border-amber-200 dark:border-amber-800',
+                    icon: <AlertTriangle className="w-6 h-6 text-amber-600" />,
+                    titulo: `Atenção, ${session.nome.split(' ')[0]}!`,
+                    msg: `Sua média geral é ${media.toFixed(1)}. Ainda há espaço para crescer! Dedique-se mais aos estudos e você alcançará a nota 10!`,
+                  };
+                }
+                return (
+                  <div className={`rounded-2xl border p-4 flex items-start gap-4 ${banner.bg} ${banner.border}`}>
+                    <div className="flex-shrink-0 mt-0.5">{banner.icon}</div>
+                    <div>
+                      <p className="font-bold text-foreground">{banner.titulo}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{banner.msg}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Table card */}
+              <div className="content-card overflow-hidden">
+                {/* Header */}
+                <div className="p-5 border-b border-border">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-foreground flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4 text-primary" />Situação Escolar Parcial
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Aluno: <strong>{session.nome}</strong> — Matrícula: <strong className="font-mono">{session.matricula}</strong>
+                      </p>
+                    </div>
+                    {session.turmaNome && (
+                      <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
+                        {session.turmaNome}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              ) : notas.length === 0 ? (
-                <div className="empty-state py-16">
-                  <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="font-medium">Nenhuma nota lançada ainda</p>
-                  <p className="text-sm mt-1">As notas serão disponibilizadas pela secretaria</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="table-head">
-                        <th className="table-th text-center w-12">Nr</th>
-                        <th className="table-th text-left">Disciplina</th>
-                        <th className="table-th text-center hidden sm:table-cell">Período</th>
-                        <th className="table-th text-center w-20">Média</th>
-                        <th className="table-th text-center">Situação</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {notas.map(n => {
-                        const sit = getSituacao(n.nota);
-                        return (
-                          <tr key={n.id} className="table-row">
-                            <td className="table-td text-center">
-                              <span className="text-muted-foreground text-sm font-mono">{n.disciplina_numero}</span>
-                            </td>
-                            <td className="table-td">
-                              <span className="font-medium text-foreground text-sm">{n.disciplina_nome}</span>
-                            </td>
-                            <td className="table-td text-center hidden sm:table-cell">
-                              <span className="text-muted-foreground text-xs">{n.periodo || '—'}</span>
-                            </td>
-                            <td className="table-td text-center">
-                              {n.nota !== null ? (
-                                <span className={`font-bold text-base ${
-                                  n.nota >= 7 ? 'text-emerald-600' :
-                                  n.nota >= 5 ? 'text-amber-600' : 'text-red-600'
-                                }`}>{Number(n.nota).toFixed(1)}</span>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
+
+                {loadingNotas ? (
+                  <div className="flex justify-center py-12">
+                    <div className="loading-spinner" />
+                  </div>
+                ) : notas.length === 0 ? (
+                  <div className="empty-state py-16">
+                    <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">Nenhuma nota lançada ainda</p>
+                    <p className="text-sm mt-1">As notas serão disponibilizadas pela secretaria</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {notas.map(n => {
+                      const sit = getSituacao(n.nota);
+                      const msg = getMensagem(n.nota);
+                      const notaColor = n.nota === null ? '' :
+                        n.nota >= 8 ? 'text-emerald-600' :
+                        n.nota >= 7 ? 'text-green-600' :
+                        n.nota >= 5 ? 'text-amber-600' : 'text-red-600';
+                      return (
+                        <div key={n.id} className="px-5 py-3.5 hover:bg-muted/20 transition-colors">
+                          <div className="flex items-center gap-3">
+                            {/* Nr */}
+                            <span className="text-xs font-mono text-muted-foreground w-6 text-center flex-shrink-0">
+                              {n.disciplina_numero}
+                            </span>
+                            {/* Discipline + message */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-foreground text-sm">{n.disciplina_nome}</p>
+                              {msg.texto && (
+                                <p className={`text-xs mt-0.5 flex items-center gap-1 ${
+                                  msg.icon === 'star' ? 'text-emerald-600' :
+                                  msg.icon === 'up' ? 'text-blue-600' :
+                                  msg.icon === 'warn' ? 'text-amber-600' : 'text-red-500'
+                                }`}>
+                                  {msg.icon === 'star' && <Star className="w-3 h-3 flex-shrink-0" />}
+                                  {msg.icon === 'up' && <TrendingUp className="w-3 h-3 flex-shrink-0" />}
+                                  {msg.icon === 'warn' && <AlertTriangle className="w-3 h-3 flex-shrink-0" />}
+                                  {msg.icon === 'down' && <TrendingDown className="w-3 h-3 flex-shrink-0" />}
+                                  {msg.texto}
+                                </p>
                               )}
-                            </td>
-                            <td className="table-td text-center">
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${sit.cls}`}>
+                            </div>
+                            {/* Periodo */}
+                            <span className="text-xs text-muted-foreground hidden sm:block flex-shrink-0">
+                              {n.periodo || ''}
+                            </span>
+                            {/* Nota */}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {n.nota !== null ? (
+                                <span className={`font-bold text-xl w-12 text-center ${notaColor}`}>
+                                  {Number(n.nota).toFixed(1)}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-sm w-12 text-center">—</span>
+                              )}
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold w-20 justify-center ${sit.cls}`}>
                                 {sit.label}
                               </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {notas.length > 0 && (
-                <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{notas.length} disciplina{notas.length !== 1 ? 's' : ''}</span>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Aprovado ≥ 7,0
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Exame ≥ 5,0
-                    </span>
-                    <span className="flex items-center gap-1 hidden sm:flex">
-                      <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Reprovado &lt; 5,0
-                    </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              )}
+                )}
+
+                {notas.length > 0 && (
+                  <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs text-muted-foreground">{notas.length} disciplina{notas.length !== 1 ? 's' : ''}</span>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Excelente 8–10
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Aprovado 7
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Exame 5–6
+                      </span>
+                      <span className="flex items-center gap-1 hidden sm:flex">
+                        <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Reprovado &lt;5
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </TabsContent>
 
