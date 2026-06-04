@@ -3119,6 +3119,8 @@ export type Database = {
           matricula: string | null
           nome: string
           portal_bloqueado: boolean | null
+          senha_definida: boolean | null
+          senha_portal: string | null
           telefone: string | null
           tipo_bolsa: string | null
           turma_id: string | null
@@ -3132,6 +3134,8 @@ export type Database = {
           matricula?: string | null
           nome?: string
           portal_bloqueado?: boolean | null
+          senha_definida?: boolean | null
+          senha_portal?: string | null
           telefone?: string | null
           tipo_bolsa?: string | null
           turma_id?: string | null
@@ -3145,6 +3149,8 @@ export type Database = {
           matricula?: string | null
           nome?: string
           portal_bloqueado?: boolean | null
+          senha_definida?: boolean | null
+          senha_portal?: string | null
           telefone?: string | null
           tipo_bolsa?: string | null
           turma_id?: string | null

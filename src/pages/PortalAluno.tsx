@@ -2,18 +2,17 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   User, BookOpen, FileText, LogOut, Upload, Trash2, Save,
   GraduationCap, ChevronRight, Hash, Building2, Phone,
   MapPin, Heart, Download, AlertCircle, Star, TrendingUp,
-  TrendingDown, Award, AlertTriangle, CalendarDays, Clock
+  TrendingDown, Award, AlertTriangle, CalendarDays, Clock,
+  Eye, EyeOff, Lock, Home, KeyRound, ShieldCheck
 } from 'lucide-react';
 
 const SESSION_KEY = 'portal_aluno_session';
+const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 interface AlunoSession {
   alunoId: string;
@@ -24,62 +23,19 @@ interface AlunoSession {
 }
 
 interface ProfileData {
-  nome_completo: string;
-  cpf: string;
-  rg: string;
-  orgao_expedidor: string;
-  data_nascimento: string;
-  cidade_nascimento: string;
-  uf_nascimento: string;
-  sexo: string;
-  estado_civil: string;
-  profissao: string;
-  email_contato: string;
-  celular1: string;
-  celular2: string;
-  telefone: string;
-  email: string;
-  endereco: string;
-  bairro: string;
-  cidade: string;
-  uf: string;
-  cep: string;
-  congregacao: string;
-  igreja_membro: string;
-  funcao_igreja: string;
-  data_conversao: string;
-  data_batismo: string;
-  nome_pai: string;
-  nome_mae: string;
-  nivel_formacao: string;
-  instituicao: string;
-  habilidades: string;
+  nome_completo: string; cpf: string; rg: string; orgao_expedidor: string;
+  data_nascimento: string; cidade_nascimento: string; uf_nascimento: string;
+  sexo: string; estado_civil: string; profissao: string; email_contato: string;
+  celular1: string; celular2: string; telefone: string; email: string;
+  endereco: string; bairro: string; cidade: string; uf: string; cep: string;
+  congregacao: string; igreja_membro: string; funcao_igreja: string;
+  data_conversao: string; data_batismo: string;
+  nome_pai: string; nome_mae: string; nivel_formacao: string;
+  instituicao: string; habilidades: string;
 }
-
-interface Nota {
-  id: string;
-  disciplina_nome: string;
-  disciplina_numero: number;
-  nota: number | null;
-  periodo: string;
-}
-
-interface Arquivo {
-  id: string;
-  nome_arquivo: string;
-  url: string;
-  storage_path: string;
-  uploaded_at: string;
-}
-
-interface Evento {
-  id: string;
-  data_aula: string;
-  professor: string;
-  disciplina: string;
-  obs: string;
-  provas_disciplinas: string;
-}
+interface Nota { id: string; disciplina_nome: string; disciplina_numero: number; nota: number | null; periodo: string; }
+interface Arquivo { id: string; nome_arquivo: string; url: string; storage_path: string; uploaded_at: string; }
+interface Evento { id: string; data_aula: string; professor: string; disciplina: string; obs: string; provas_disciplinas: string; }
 
 const emptyProfile: ProfileData = {
   nome_completo: '', cpf: '', rg: '', orgao_expedidor: '', data_nascimento: '',
@@ -91,41 +47,82 @@ const emptyProfile: ProfileData = {
 };
 
 const getSituacao = (nota: number | null) => {
-  if (nota === null || nota === undefined) return { label: 'Cursando', cls: 'badge-neutro' };
-  if (nota >= 8) return { label: 'Excelente', cls: 'text-emerald-700 bg-emerald-100 border border-emerald-200' };
-  if (nota >= 7) return { label: 'Aprovado', cls: 'badge-pago' };
-  if (nota >= 5) return { label: 'Exame', cls: 'text-amber-700 bg-amber-100 border border-amber-200' };
-  return { label: 'Reprovado', cls: 'badge-inadimplente' };
+  if (nota === null) return { label: 'Cursando', color: 'rgba(255,255,255,0.4)' };
+  if (nota >= 8) return { label: 'Excelente', color: '#34d399' };
+  if (nota >= 7) return { label: 'Aprovado', color: '#60a5fa' };
+  if (nota >= 5) return { label: 'Exame', color: '#fbbf24' };
+  return { label: 'Reprovado', color: '#f87171' };
 };
 
-const getMensagem = (nota: number | null): { texto: string; icon: 'star' | 'up' | 'warn' | 'down' | null } => {
-  if (nota === null || nota === undefined) return { texto: '', icon: null };
-  if (nota >= 8) return {
-    texto: 'Parabéns! Excelente desempenho! Continue assim, você é um exemplo!',
-    icon: 'star',
-  };
-  if (nota >= 7) return {
-    texto: 'Ótimo! Você bateu a média! Você está no caminho certo!',
-    icon: 'up',
-  };
-  return {
-    texto: 'Dedique-se mais aos estudos para alcançar a nota máxima. Você consegue!',
-    icon: nota >= 5 ? 'warn' : 'down',
-  };
+const getMensagem = (nota: number | null) => {
+  if (nota === null) return null;
+  if (nota >= 8) return { icon: 'star' as const, text: 'Parabéns! Excelente desempenho! Continue assim, você é um exemplo!', color: '#34d399' };
+  if (nota >= 7) return { icon: 'up' as const, text: 'Ótimo! Você bateu a média! Você está no caminho certo!', color: '#60a5fa' };
+  if (nota >= 5) return { icon: 'warn' as const, text: 'Atenção! Dedique-se mais para alcançar a nota máxima. Você consegue!', color: '#fbbf24' };
+  return { icon: 'down' as const, text: 'Precisa de recuperação! Dedique-se mais aos estudos para alcançar a nota 10!', color: '#f87171' };
 };
 
+/* ─────────────── Shared input component ─────────────── */
+function PortalInput({ label, type = 'text', value, onChange, placeholder, readOnly, name, right }: {
+  label?: string; type?: string; value: string; onChange?: (v: string) => void;
+  placeholder?: string; readOnly?: boolean; name?: string; right?: React.ReactNode;
+}) {
+  return (
+    <div>
+      {label && <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>{label}</label>}
+      <div style={{ position: 'relative' }}>
+        <input
+          type={type} value={value} name={name} readOnly={readOnly}
+          autoComplete="off" autoCorrect="off" spellCheck={false}
+          onChange={e => onChange?.(e.target.value)}
+          placeholder={placeholder}
+          className="portal-input"
+          style={readOnly ? { opacity: 0.6, cursor: 'default' } : {}}
+        />
+        {right && <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>{right}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── Password input with toggle ─────────────── */
+function PasswordInput({ label, value, onChange, placeholder, name }: { label?: string; value: string; onChange: (v: string) => void; placeholder?: string; name?: string; }) {
+  const [show, setShow] = useState(false);
+  return (
+    <PortalInput
+      label={label} type={show ? 'text' : 'password'} value={value} onChange={onChange}
+      placeholder={placeholder} name={name}
+      right={
+        <button type="button" onClick={() => setShow(s => !s)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 0 }}>
+          {show ? <EyeOff size={15} /> : <Eye size={15} />}
+        </button>
+      }
+    />
+  );
+}
+
+/* ─────────────── Main Component ─────────────── */
 export default function PortalAluno() {
+  const [screen, setScreen] = useState<'login' | 'change-password' | 'portal'>('login');
   const [session, setSession] = useState<AlunoSession | null>(null);
+  const [activeTab, setActiveTab] = useState<'inicio' | 'notas' | 'calendario' | 'ficha' | 'documentos'>('inicio');
+
+  // Login state
   const [matriculaInput, setMatriculaInput] = useState('');
+  const [senhaInput, setSenhaInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('ficha');
+
+  // Change password state
+  const [tempAlunoId, setTempAlunoId] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
 
   // Ficha
   const [profile, setProfile] = useState<ProfileData>(emptyProfile);
   const [profileId, setProfileId] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [alunoEmail, setAlunoEmail] = useState('');
-  const [alunoTelefone, setAlunoTelefone] = useState('');
 
   // Notas
   const [notas, setNotas] = useState<Nota[]>([]);
@@ -139,68 +136,60 @@ export default function PortalAluno() {
   // Calendário
   const [eventos, setEventos] = useState<Evento[]>([]);
 
-  const loadCalendario = useCallback(async () => {
-    const { data } = await supabase.from('calendario_aulas').select('*').order('data_aula', { ascending: true });
-    setEventos(data || []);
-  }, []);
-
+  /* Load session on mount */
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
     if (saved) {
-      try { setSession(JSON.parse(saved)); } catch { /* ignore */ }
+      try {
+        const s = JSON.parse(saved) as AlunoSession;
+        setSession(s);
+        setScreen('portal');
+      } catch { /* ignore */ }
     }
   }, []);
 
+  /* Load data after login */
   const loadProfile = useCallback(async (alunoId: string) => {
-    // Load aluno base data
-    const { data: aluno } = await supabase
-      .from('alunos').select('email, telefone').eq('id', alunoId).maybeSingle();
-    if (aluno) {
-      setAlunoEmail(aluno.email || '');
-      setAlunoTelefone(aluno.telefone || '');
-    }
-
-    // Load student profile
-    const { data } = await supabase
-      .from('student_profiles').select('*').eq('aluno_id', alunoId).maybeSingle();
+    const { data: aluno } = await supabase.from('alunos').select('email, telefone').eq('id', alunoId).maybeSingle();
+    if (aluno) setAlunoEmail(aluno.email || '');
+    const { data } = await supabase.from('student_profiles').select('*').eq('aluno_id', alunoId).maybeSingle();
     if (data) {
       setProfileId(data.id);
       setProfile({
-        nome_completo: data.nome_completo || '',
-        cpf: data.cpf || '', rg: data.rg || '', orgao_expedidor: data.orgao_expedidor || '',
-        data_nascimento: data.data_nascimento || '', cidade_nascimento: data.cidade_nascimento || '',
-        uf_nascimento: data.uf_nascimento || '', sexo: data.sexo || '', estado_civil: data.estado_civil || '',
-        profissao: data.profissao || '', email_contato: data.email_contato || '',
-        celular1: data.celular1 || '', celular2: data.celular2 || '',
+        nome_completo: data.nome_completo || '', cpf: data.cpf || '', rg: data.rg || '',
+        orgao_expedidor: data.orgao_expedidor || '', data_nascimento: data.data_nascimento || '',
+        cidade_nascimento: data.cidade_nascimento || '', uf_nascimento: data.uf_nascimento || '',
+        sexo: data.sexo || '', estado_civil: data.estado_civil || '', profissao: data.profissao || '',
+        email_contato: data.email_contato || '', celular1: data.celular1 || '', celular2: data.celular2 || '',
         telefone: data.telefone || '', email: data.email_contato || '',
         endereco: data.endereco || '', bairro: data.bairro || '', cidade: data.cidade || '',
         uf: data.uf || '', cep: data.cep || '', congregacao: data.congregacao || '',
         igreja_membro: data.igreja_membro || '', funcao_igreja: data.funcao_igreja || '',
         data_conversao: data.data_conversao || '', data_batismo: data.data_batismo || '',
         nome_pai: data.nome_pai || '', nome_mae: data.nome_mae || '',
-        nivel_formacao: data.nivel_formacao || '', instituicao: data.instituicao || '',
-        habilidades: data.habilidades || '',
+        nivel_formacao: data.nivel_formacao || '', instituicao: data.instituicao || '', habilidades: data.habilidades || '',
       });
     } else {
       setProfileId(null);
-      setProfile({ ...emptyProfile, nome_completo: '' });
+      setProfile(emptyProfile);
     }
   }, []);
 
   const loadNotas = useCallback(async (alunoId: string) => {
     setLoadingNotas(true);
-    const { data } = await supabase
-      .from('notas_aluno').select('*').eq('aluno_id', alunoId)
-      .order('disciplina_numero', { ascending: true });
+    const { data } = await supabase.from('notas_aluno').select('*').eq('aluno_id', alunoId).order('disciplina_numero', { ascending: true });
     setNotas(data || []);
     setLoadingNotas(false);
   }, []);
 
   const loadArquivos = useCallback(async (alunoId: string) => {
-    const { data } = await supabase
-      .from('portal_arquivos').select('*').eq('aluno_id', alunoId)
-      .order('uploaded_at', { ascending: false });
+    const { data } = await supabase.from('portal_arquivos').select('*').eq('aluno_id', alunoId).order('uploaded_at', { ascending: false });
     setArquivos(data || []);
+  }, []);
+
+  const loadCalendario = useCallback(async () => {
+    const { data } = await supabase.from('calendario_aulas').select('*').order('data_aula', { ascending: true });
+    setEventos(data || []);
   }, []);
 
   useEffect(() => {
@@ -212,51 +201,56 @@ export default function PortalAluno() {
     }
   }, [session, loadProfile, loadNotas, loadArquivos, loadCalendario]);
 
+  /* ─── LOGIN ─────────────────────────────────────────────── */
   const handleLogin = async () => {
-    if (!matriculaInput.trim()) {
-      toast.error('Digite sua matrícula');
+    if (!matriculaInput.trim() || !senhaInput.trim()) {
+      toast.error('Preencha matrícula e senha');
       return;
     }
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('alunos')
-        .select('id, nome, matricula, turma_id, ativo, portal_bloqueado')
+        .select('id, nome, matricula, turma_id, ativo, portal_bloqueado, senha_portal, senha_definida')
         .eq('matricula', matriculaInput.trim())
         .neq('matricula', '')
         .maybeSingle();
 
       if (error) throw error;
-      if (!data) {
-        toast.error('Matrícula não encontrada. Verifique o número e tente novamente.');
-        return;
-      }
-      if (!data.ativo) {
-        toast.error('Aluno inativo. Contacte a secretaria.');
-        return;
-      }
-      if (data.portal_bloqueado) {
-        toast.error('Acesso bloqueado. Contacte a secretaria.');
+      if (!data) { toast.error('Matrícula não encontrada'); return; }
+      if (!data.ativo) { toast.error('Aluno inativo. Contacte a secretaria.'); return; }
+      if (data.portal_bloqueado) { toast.error('Acesso bloqueado. Contacte a secretaria.'); return; }
+
+      // Validate password
+      const senhaCorreta = data.senha_definida
+        ? senhaInput.trim() === data.senha_portal
+        : senhaInput.trim() === data.matricula;
+
+      if (!senhaCorreta) {
+        toast.error(data.senha_definida ? 'Senha incorreta' : 'Senha incorreta. Use sua matrícula como senha inicial.');
         return;
       }
 
       let turmaNome = '';
       if (data.turma_id) {
-        const { data: turma } = await supabase
-          .from('classes').select('nome').eq('id', data.turma_id).maybeSingle();
+        const { data: turma } = await supabase.from('classes').select('nome').eq('id', data.turma_id).maybeSingle();
         turmaNome = turma?.nome || '';
       }
 
-      const newSession: AlunoSession = {
-        alunoId: data.id,
-        nome: data.nome,
-        matricula: data.matricula || '',
-        turmaId: data.turma_id,
-        turmaNome,
-      };
-      localStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
-      setSession(newSession);
-      toast.success(`Bem-vindo, ${data.nome}!`);
+      setTempAlunoId(data.id);
+
+      if (!data.senha_definida) {
+        // Force password change before entering portal
+        const s: AlunoSession = { alunoId: data.id, nome: data.nome, matricula: data.matricula || '', turmaId: data.turma_id, turmaNome };
+        setSession(s);
+        setScreen('change-password');
+      } else {
+        const s: AlunoSession = { alunoId: data.id, nome: data.nome, matricula: data.matricula || '', turmaId: data.turma_id, turmaNome };
+        localStorage.setItem(SESSION_KEY, JSON.stringify(s));
+        setSession(s);
+        setScreen('portal');
+        toast.success(`Bem-vindo, ${data.nome.split(' ')[0]}!`);
+      }
     } catch {
       toast.error('Erro ao fazer login. Tente novamente.');
     } finally {
@@ -264,30 +258,44 @@ export default function PortalAluno() {
     }
   };
 
+  /* ─── CHANGE PASSWORD ──────────────────────────────────── */
+  const handleSavePassword = async () => {
+    if (newPassword.length < 6) { toast.error('A senha deve ter pelo menos 6 caracteres'); return; }
+    if (newPassword !== confirmPassword) { toast.error('As senhas não coincidem'); return; }
+    setSavingPassword(true);
+    try {
+      await supabase.from('alunos').update({ senha_portal: newPassword, senha_definida: true }).eq('id', tempAlunoId);
+      if (session) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        setScreen('portal');
+        toast.success(`Senha definida! Bem-vindo, ${session.nome.split(' ')[0]}!`);
+      }
+    } catch {
+      toast.error('Erro ao salvar senha');
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
-    setProfile(emptyProfile);
-    setProfileId(null);
-    setNotas([]);
-    setArquivos([]);
+    setScreen('login');
     setMatriculaInput('');
+    setSenhaInput('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setActiveTab('inicio');
   };
 
+  /* ─── SAVE PROFILE ─────────────────────────────────────── */
   const handleSaveProfile = async () => {
     if (!session) return;
     setSavingProfile(true);
     try {
-      // Update aluno base info
-      await supabase.from('alunos').update({
-        email: alunoEmail,
-        telefone: alunoTelefone,
-      }).eq('id', session.alunoId);
-
-      // Upsert student profile
+      await supabase.from('alunos').update({ email: alunoEmail }).eq('id', session.alunoId);
       const payload = {
-        aluno_id: session.alunoId,
-        nome_completo: profile.nome_completo,
+        aluno_id: session.alunoId, nome_completo: profile.nome_completo,
         cpf: profile.cpf, rg: profile.rg, orgao_expedidor: profile.orgao_expedidor,
         data_nascimento: profile.data_nascimento, cidade_nascimento: profile.cidade_nascimento,
         uf_nascimento: profile.uf_nascimento, sexo: profile.sexo, estado_civil: profile.estado_civil,
@@ -299,134 +307,94 @@ export default function PortalAluno() {
         data_conversao: profile.data_conversao, data_batismo: profile.data_batismo,
         nome_pai: profile.nome_pai, nome_mae: profile.nome_mae,
         nivel_formacao: profile.nivel_formacao, instituicao: profile.instituicao,
-        habilidades: profile.habilidades,
-        updated_at: new Date().toISOString(),
+        habilidades: profile.habilidades, updated_at: new Date().toISOString(),
       };
-
       if (profileId) {
-        const { error } = await supabase.from('student_profiles')
-          .update(payload).eq('id', profileId);
-        if (error) throw error;
+        await supabase.from('student_profiles').update(payload).eq('id', profileId);
       } else {
-        const { data, error } = await supabase.from('student_profiles').insert(payload).select().single();
-        if (error) throw error;
-        setProfileId(data.id);
+        const { data } = await supabase.from('student_profiles').insert(payload).select().single();
+        if (data) setProfileId(data.id);
       }
-      toast.success('Informações salvas com sucesso!');
+      toast.success('Informações salvas!');
     } catch {
-      toast.error('Erro ao salvar. Tente novamente.');
+      toast.error('Erro ao salvar');
     } finally {
       setSavingProfile(false);
     }
   };
 
+  /* ─── FILE UPLOAD ──────────────────────────────────────── */
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !session) return;
-
-    const maxSize = 20 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error('Arquivo muito grande (máx 20 MB)');
-      return;
-    }
-
+    if (file.size > 20 * 1024 * 1024) { toast.error('Arquivo muito grande (máx 20 MB)'); return; }
     setUploading(true);
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storagePath = `${session.alunoId}/${Date.now()}_${safeName}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('portal-docs')
-        .upload(storagePath, file, { upsert: false });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('portal-docs')
-        .getPublicUrl(uploadData.path);
-
-      const { error: dbError } = await supabase.from('portal_arquivos').insert({
-        aluno_id: session.alunoId,
-        nome_arquivo: file.name,
-        url: publicUrl,
-        storage_path: uploadData.path,
-      });
-      if (dbError) throw dbError;
-
-      toast.success('Arquivo enviado com sucesso!');
+      const path = `${session.alunoId}/${Date.now()}_${safeName}`;
+      const { data: up, error } = await supabase.storage.from('portal-docs').upload(path, file, { upsert: false });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('portal-docs').getPublicUrl(up.path);
+      await supabase.from('portal_arquivos').insert({ aluno_id: session.alunoId, nome_arquivo: file.name, url: publicUrl, storage_path: up.path });
+      toast.success('Arquivo enviado!');
       loadArquivos(session.alunoId);
-    } catch {
-      toast.error('Erro ao enviar arquivo. Tente novamente.');
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
+    } catch { toast.error('Erro ao enviar arquivo'); }
+    finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
   };
 
   const handleDeleteArquivo = async (arq: Arquivo) => {
     if (!session) return;
-    try {
-      if (arq.storage_path) {
-        await supabase.storage.from('portal-docs').remove([arq.storage_path]);
-      }
-      await supabase.from('portal_arquivos').delete().eq('id', arq.id);
-      toast.success('Arquivo removido');
-      loadArquivos(session.alunoId);
-    } catch {
-      toast.error('Erro ao remover arquivo');
-    }
+    if (arq.storage_path) await supabase.storage.from('portal-docs').remove([arq.storage_path]);
+    await supabase.from('portal_arquivos').delete().eq('id', arq.id);
+    toast.success('Arquivo removido');
+    loadArquivos(session.alunoId);
   };
 
   const setP = (k: keyof ProfileData, v: string) => setProfile(p => ({ ...p, [k]: v }));
 
-  // ─── LOGIN SCREEN ────────────────────────────────────────────────────
-  if (!session) {
+  /* ═══════════════════════════════════════════════════════════════
+     SCREEN: LOGIN
+  ═══════════════════════════════════════════════════════════════ */
+  if (screen === 'login') {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4"
-        style={{ background: 'linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--muted)/0.3) 100%)' }}>
-        <div className="w-full max-w-sm">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-              <GraduationCap className="w-8 h-8 text-primary" />
+      <div className="portal-bg flex items-center justify-center p-4" style={{ minHeight: '100vh' }}>
+        <div style={{ width: '100%', maxWidth: 400 }}>
+          {/* Logo area */}
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 72, height: 72, borderRadius: 20, marginBottom: 16,
+              background: 'linear-gradient(135deg, hsl(221 60% 20%), hsl(221 60% 28%))',
+              border: '1px solid hsl(43 90% 50% / 0.3)',
+              boxShadow: '0 8px 32px hsl(43 90% 50% / 0.15)'
+            }}>
+              <GraduationCap size={32} style={{ color: 'hsl(43 90% 55%)' }} />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Portal do Aluno</h1>
-            <p className="text-muted-foreground text-sm mt-1">ESTEADEB — Escola Teológica</p>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: '#e8eaf6', marginBottom: 4 }}>Portal do Aluno</h1>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.04em' }}>ESTEADEB — Escola Teológica</p>
           </div>
 
           {/* Card */}
-          <div className="content-card p-6 shadow-lg">
-            <div className="space-y-4">
-              <div>
-                <Label className="form-label">Número de Matrícula</Label>
-                <Input
-                  className="form-input mt-1 text-center text-lg font-mono tracking-widest"
-                  placeholder="Ex: 2026001"
-                  value={matriculaInput}
-                  onChange={e => setMatriculaInput(e.target.value.trim())}
-                  onKeyDown={e => e.key === 'Enter' && handleLogin()}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  name="matricula-portal"
-                  autoFocus
-                />
-                <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                  Digite apenas o número da matrícula (ex: 2026001)
-                </p>
-              </div>
-              <Button
-                onClick={handleLogin}
-                disabled={loading || !matriculaInput.trim()}
-                className="w-full btn-primary gap-2 h-10">
-                {loading ? (
-                  <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                ) : <ChevronRight className="w-4 h-4" />}
-                {loading ? 'Verificando...' : 'Acessar Portal'}
-              </Button>
+          <div className="portal-card" style={{ padding: 28 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <PortalInput label="Número de Matrícula" value={matriculaInput}
+                onChange={setMatriculaInput} placeholder="Ex: 2026001" name="portal-matricula" />
+              <PasswordInput label="Senha" value={senhaInput}
+                onChange={setSenhaInput} placeholder="Sua senha de acesso" name="portal-senha" />
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <AlertCircle size={11} />
+                No primeiro acesso, a senha é o número da sua matrícula
+              </p>
+              <button
+                onClick={handleLogin} disabled={loading || !matriculaInput.trim() || !senhaInput.trim()}
+                className="gold-btn" style={{ width: '100%', padding: '11px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14 }}>
+                {loading
+                  ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#080c18', animation: 'spin 0.7s linear infinite' }} />
+                  : <ChevronRight size={16} />}
+                {loading ? 'Verificando...' : 'Entrar no Portal'}
+              </button>
             </div>
-            <p className="text-xs text-center text-muted-foreground mt-4">
+            <p style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 20 }}>
               Não possui matrícula? Contacte a secretaria.
             </p>
           </div>
@@ -435,473 +403,316 @@ export default function PortalAluno() {
     );
   }
 
-  // ─── PORTAL PRINCIPAL ─────────────────────────────────────────────────
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-sm">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <span className="text-sm font-bold text-primary">{session.nome.charAt(0).toUpperCase()}</span>
+  /* ═══════════════════════════════════════════════════════════════
+     SCREEN: FORCE CHANGE PASSWORD
+  ═══════════════════════════════════════════════════════════════ */
+  if (screen === 'change-password') {
+    return (
+      <div className="portal-bg flex items-center justify-center p-4" style={{ minHeight: '100vh' }}>
+        <div style={{ width: '100%', maxWidth: 420 }}>
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 64, height: 64, borderRadius: 18, marginBottom: 14,
+              background: 'linear-gradient(135deg, hsl(43 80% 20%), hsl(43 80% 30%))',
+              border: '1px solid hsl(43 90% 50% / 0.4)',
+              boxShadow: '0 8px 28px hsl(43 90% 50% / 0.2)'
+            }}>
+              <KeyRound size={28} style={{ color: 'hsl(43 90% 55%)' }} />
             </div>
-            <div>
-              <p className="font-semibold text-foreground text-sm leading-tight">{session.nome}</p>
-              <p className="text-xs text-muted-foreground font-mono">{session.matricula}</p>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#e8eaf6', marginBottom: 6 }}>Defina sua Senha</h1>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>
+              Olá, <strong style={{ color: 'hsl(43 90% 60%)' }}>{session?.nome.split(' ')[0]}</strong>! Por segurança, defina uma senha pessoal para acessar o portal.
+            </p>
+          </div>
+
+          <div className="portal-card-gold" style={{ padding: 28 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <ShieldCheck size={16} style={{ color: 'hsl(43 90% 55%)', flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
+                  A senha deve ter pelo menos 6 caracteres. Anote em local seguro.
+                </span>
+              </div>
+              <PasswordInput label="Nova Senha" value={newPassword} onChange={setNewPassword} placeholder="Mínimo 6 caracteres" name="new-password" />
+              <PasswordInput label="Confirmar Senha" value={confirmPassword} onChange={setConfirmPassword} placeholder="Repita a nova senha" name="confirm-password" />
+              <button
+                onClick={handleSavePassword}
+                disabled={savingPassword || newPassword.length < 6 || newPassword !== confirmPassword}
+                className="gold-btn"
+                style={{ width: '100%', padding: '11px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: 14, marginTop: 4 }}>
+                {savingPassword
+                  ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#080c18', animation: 'spin 0.7s linear infinite' }} />
+                  : <Lock size={15} />}
+                {savingPassword ? 'Salvando...' : 'Salvar Senha e Entrar'}
+              </button>
+              {newPassword.length > 0 && confirmPassword.length > 0 && newPassword !== confirmPassword && (
+                <p style={{ fontSize: 12, color: '#f87171', textAlign: 'center' }}>As senhas não coincidem</p>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+        </div>
+      </div>
+    );
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SCREEN: PORTAL
+  ═══════════════════════════════════════════════════════════════ */
+  if (!session) return null;
+
+  // Compute next event
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const nextEvento = eventos.find(e => new Date(e.data_aula + 'T00:00:00') >= today);
+  const notasComNota = notas.filter(n => n.nota !== null);
+  const mediaGeral = notasComNota.length > 0 ? notasComNota.reduce((s, n) => s + Number(n.nota), 0) / notasComNota.length : null;
+
+  // Tab nav items
+  const tabs = [
+    { id: 'inicio' as const, label: 'Início', icon: Home },
+    { id: 'notas' as const, label: 'Notas', icon: BookOpen },
+    { id: 'calendario' as const, label: 'Calendário', icon: CalendarDays },
+    { id: 'ficha' as const, label: 'Minha Ficha', icon: User },
+    { id: 'documentos' as const, label: 'Documentos', icon: FileText },
+  ];
+
+  return (
+    <div className="portal-bg" style={{ minHeight: '100vh' }}>
+      {/* ── Header ── */}
+      <header className="portal-header" style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 16px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg, hsl(221 60% 25%), hsl(221 60% 32%))', border: '1px solid hsl(43 90% 50% / 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontWeight: 800, fontSize: 14, color: 'hsl(43 90% 55%)' }}>{session.nome.charAt(0).toUpperCase()}</span>
+            </div>
+            <div>
+              <p style={{ fontWeight: 700, fontSize: 13, color: '#e8eaf6', lineHeight: 1.2 }}>{session.nome}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: 'monospace' }}>{session.matricula}</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {session.turmaNome && (
-              <span className="hidden sm:inline text-xs bg-muted text-muted-foreground px-2.5 py-1 rounded-full">
-                {session.turmaNome}
-              </span>
+              <span style={{ fontSize: 11, background: 'hsl(43 90% 50% / 0.1)', color: 'hsl(43 90% 60%)', padding: '3px 10px', borderRadius: 20, border: '1px solid hsl(43 90% 50% / 0.2)', fontWeight: 600, display: 'none' }}
+                className="sm:inline-block">{session.turmaNome}</span>
             )}
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-destructive h-8">
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline text-xs">Sair</span>
-            </Button>
+            <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(255,255,255,0.35)', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 10px', borderRadius: 8, transition: 'all 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#f87171'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.35)'; }}>
+              <LogOut size={14} />Sair
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full mb-6 grid grid-cols-4">
-            <TabsTrigger value="ficha" className="gap-1.5 text-xs sm:text-sm">
-              <User className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Minha Ficha</span>
-              <span className="sm:hidden">Ficha</span>
-            </TabsTrigger>
-            <TabsTrigger value="notas" className="gap-1.5 text-xs sm:text-sm">
-              <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Notas</span>
-              <span className="sm:hidden">Notas</span>
-            </TabsTrigger>
-            <TabsTrigger value="calendario" className="gap-1.5 text-xs sm:text-sm">
-              <CalendarDays className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Calendário</span>
-              <span className="sm:hidden">Agenda</span>
-            </TabsTrigger>
-            <TabsTrigger value="documentos" className="gap-1.5 text-xs sm:text-sm">
-              <FileText className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Documentos</span>
-              <span className="sm:hidden">Docs</span>
-            </TabsTrigger>
-          </TabsList>
+      {/* ── Tab Navigation ── */}
+      <div style={{ position: 'sticky', top: 56, zIndex: 20, background: '#060c1a', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 12px', display: 'flex', overflowX: 'auto', gap: 4, paddingBottom: 6, paddingTop: 6 }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              className={`portal-tab ${activeTab === t.id ? 'active' : ''}`}>
+              <t.icon size={14} />{t.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-          {/* ── TAB FICHA ── */}
-          <TabsContent value="ficha">
-            <div className="space-y-5">
-              {/* Dados da Escola (readonly) */}
-              <div className="content-card p-5">
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Hash className="w-4 h-4 text-primary" />Dados Escolares
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <p className="form-label">Matrícula</p>
-                    <p className="font-mono font-semibold text-foreground mt-1">{session.matricula || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="form-label">Turma</p>
-                    <p className="font-medium text-foreground mt-1">{session.turmaNome || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="form-label">Nome</p>
-                    <p className="font-medium text-foreground mt-1">{session.nome}</p>
-                  </div>
+      {/* ── Content ── */}
+      <main style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
+
+        {/* ══ TAB: INÍCIO ══════════════════════════════════════════ */}
+        {activeTab === 'inicio' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Hero */}
+            <div className="portal-card" style={{
+              background: 'linear-gradient(135deg, #0d1a40 0%, #112050 50%, #0d1835 100%)',
+              border: '1px solid hsl(43 90% 50% / 0.2)',
+              padding: 28, position: 'relative', overflow: 'hidden'
+            }}>
+              <div style={{ position: 'absolute', top: -40, right: -40, width: 180, height: 180, borderRadius: '50%', background: 'hsl(43 90% 50% / 0.04)' }} />
+              <div style={{ position: 'absolute', bottom: -30, right: 60, width: 100, height: 100, borderRadius: '50%', background: 'hsl(221 83% 53% / 0.08)' }} />
+              <p style={{ fontSize: 13, color: 'hsl(43 90% 60%)', fontWeight: 600, marginBottom: 6 }}>Bem-vindo de volta,</p>
+              <h2 style={{ fontSize: 26, fontWeight: 800, color: '#e8eaf6', marginBottom: 10, lineHeight: 1.2 }}>{session.nome}</h2>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                  <Hash size={12} /><span>Matrícula: <strong style={{ color: 'rgba(255,255,255,0.8)', fontFamily: 'monospace' }}>{session.matricula}</strong></span>
                 </div>
-              </div>
-
-              {/* Dados Pessoais */}
-              <div className="content-card p-5">
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <User className="w-4 h-4 text-primary" />Dados Pessoais
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2 lg:col-span-3">
-                    <Label className="form-label">Nome Completo</Label>
-                    <Input className="form-input mt-1" value={profile.nome_completo}
-                      onChange={e => setP('nome_completo', e.target.value)} placeholder="Nome completo" />
+                {session.turmaNome && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>
+                    <BookOpen size={12} /><span>Turma: <strong style={{ color: 'rgba(255,255,255,0.8)' }}>{session.turmaNome}</strong></span>
                   </div>
-                  <div>
-                    <Label className="form-label">CPF</Label>
-                    <Input className="form-input mt-1" value={profile.cpf}
-                      onChange={e => setP('cpf', e.target.value)} placeholder="000.000.000-00" />
-                  </div>
-                  <div>
-                    <Label className="form-label">RG</Label>
-                    <Input className="form-input mt-1" value={profile.rg}
-                      onChange={e => setP('rg', e.target.value)} placeholder="Número do RG" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Órgão Expedidor</Label>
-                    <Input className="form-input mt-1" value={profile.orgao_expedidor}
-                      onChange={e => setP('orgao_expedidor', e.target.value)} placeholder="SSP/XX" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Data de Nascimento</Label>
-                    <Input className="form-input mt-1" type="date" value={profile.data_nascimento}
-                      onChange={e => setP('data_nascimento', e.target.value)} />
-                  </div>
-                  <div>
-                    <Label className="form-label">Cidade de Nascimento</Label>
-                    <Input className="form-input mt-1" value={profile.cidade_nascimento}
-                      onChange={e => setP('cidade_nascimento', e.target.value)} placeholder="Cidade" />
-                  </div>
-                  <div>
-                    <Label className="form-label">UF Nascimento</Label>
-                    <Input className="form-input mt-1" value={profile.uf_nascimento}
-                      onChange={e => setP('uf_nascimento', e.target.value)} placeholder="XX" maxLength={2} />
-                  </div>
-                  <div>
-                    <Label className="form-label">Sexo</Label>
-                    <Select value={profile.sexo || 'none'} onValueChange={v => setP('sexo', v === 'none' ? '' : v)}>
-                      <SelectTrigger className="form-input mt-1"><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">—</SelectItem>
-                        <SelectItem value="Masculino">Masculino</SelectItem>
-                        <SelectItem value="Feminino">Feminino</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="form-label">Estado Civil</Label>
-                    <Select value={profile.estado_civil || 'none'} onValueChange={v => setP('estado_civil', v === 'none' ? '' : v)}>
-                      <SelectTrigger className="form-input mt-1"><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">—</SelectItem>
-                        <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
-                        <SelectItem value="Casado(a)">Casado(a)</SelectItem>
-                        <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
-                        <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="form-label">Profissão</Label>
-                    <Input className="form-input mt-1" value={profile.profissao}
-                      onChange={e => setP('profissao', e.target.value)} placeholder="Profissão" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Contato */}
-              <div className="content-card p-5">
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-primary" />Contato
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="form-label">Celular Principal</Label>
-                    <Input className="form-input mt-1" value={profile.celular1}
-                      onChange={e => setP('celular1', e.target.value)} placeholder="(00) 00000-0000" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Celular Secundário</Label>
-                    <Input className="form-input mt-1" value={profile.celular2}
-                      onChange={e => setP('celular2', e.target.value)} placeholder="(00) 00000-0000" />
-                  </div>
-                  <div>
-                    <Label className="form-label">E-mail</Label>
-                    <Input className="form-input mt-1" type="email" value={alunoEmail}
-                      onChange={e => setAlunoEmail(e.target.value)} placeholder="email@exemplo.com" />
-                  </div>
-                  <div>
-                    <Label className="form-label">E-mail de Contato Alternativo</Label>
-                    <Input className="form-input mt-1" type="email" value={profile.email_contato}
-                      onChange={e => setP('email_contato', e.target.value)} placeholder="email@exemplo.com" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Endereço */}
-              <div className="content-card p-5">
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-primary" />Endereço
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="sm:col-span-2">
-                    <Label className="form-label">Endereço</Label>
-                    <Input className="form-input mt-1" value={profile.endereco}
-                      onChange={e => setP('endereco', e.target.value)} placeholder="Rua, número, complemento" />
-                  </div>
-                  <div>
-                    <Label className="form-label">CEP</Label>
-                    <Input className="form-input mt-1" value={profile.cep}
-                      onChange={e => setP('cep', e.target.value)} placeholder="00000-000" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Bairro</Label>
-                    <Input className="form-input mt-1" value={profile.bairro}
-                      onChange={e => setP('bairro', e.target.value)} placeholder="Bairro" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Cidade</Label>
-                    <Input className="form-input mt-1" value={profile.cidade}
-                      onChange={e => setP('cidade', e.target.value)} placeholder="Cidade" />
-                  </div>
-                  <div>
-                    <Label className="form-label">UF</Label>
-                    <Input className="form-input mt-1" value={profile.uf}
-                      onChange={e => setP('uf', e.target.value)} placeholder="XX" maxLength={2} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Igreja */}
-              <div className="content-card p-5">
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-primary" />Igreja
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="form-label">Congregação</Label>
-                    <Input className="form-input mt-1" value={profile.congregacao}
-                      onChange={e => setP('congregacao', e.target.value)} placeholder="Nome da congregação" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Igreja Membro</Label>
-                    <Input className="form-input mt-1" value={profile.igreja_membro}
-                      onChange={e => setP('igreja_membro', e.target.value)} placeholder="Igreja" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Função na Igreja</Label>
-                    <Input className="form-input mt-1" value={profile.funcao_igreja}
-                      onChange={e => setP('funcao_igreja', e.target.value)} placeholder="Pastor, Diácono..." />
-                  </div>
-                  <div>
-                    <Label className="form-label">Data de Conversão</Label>
-                    <Input className="form-input mt-1" type="date" value={profile.data_conversao}
-                      onChange={e => setP('data_conversao', e.target.value)} />
-                  </div>
-                  <div>
-                    <Label className="form-label">Data de Batismo</Label>
-                    <Input className="form-input mt-1" type="date" value={profile.data_batismo}
-                      onChange={e => setP('data_batismo', e.target.value)} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Família */}
-              <div className="content-card p-5">
-                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-primary" />Família e Formação
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="form-label">Nome do Pai</Label>
-                    <Input className="form-input mt-1" value={profile.nome_pai}
-                      onChange={e => setP('nome_pai', e.target.value)} placeholder="Nome do pai" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Nome da Mãe</Label>
-                    <Input className="form-input mt-1" value={profile.nome_mae}
-                      onChange={e => setP('nome_mae', e.target.value)} placeholder="Nome da mãe" />
-                  </div>
-                  <div>
-                    <Label className="form-label">Nível de Formação</Label>
-                    <Select value={profile.nivel_formacao || 'none'} onValueChange={v => setP('nivel_formacao', v === 'none' ? '' : v)}>
-                      <SelectTrigger className="form-input mt-1"><SelectValue placeholder="Selecionar" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">—</SelectItem>
-                        <SelectItem value="Fundamental">Fundamental</SelectItem>
-                        <SelectItem value="Médio">Médio</SelectItem>
-                        <SelectItem value="Superior">Superior</SelectItem>
-                        <SelectItem value="Pós-graduação">Pós-graduação</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="form-label">Instituição de Ensino</Label>
-                    <Input className="form-input mt-1" value={profile.instituicao}
-                      onChange={e => setP('instituicao', e.target.value)} placeholder="Escola/Faculdade" />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Label className="form-label">Habilidades / Talentos</Label>
-                    <Input className="form-input mt-1" value={profile.habilidades}
-                      onChange={e => setP('habilidades', e.target.value)} placeholder="Ex: Música, Liderança..." />
-                  </div>
-                </div>
-              </div>
-
-              {/* Save button */}
-              <div className="flex justify-end">
-                <Button onClick={handleSaveProfile} disabled={savingProfile} className="btn-primary gap-2 h-10 px-6">
-                  {savingProfile
-                    ? <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    : <Save className="w-4 h-4" />}
-                  {savingProfile ? 'Salvando...' : 'Salvar Informações'}
-                </Button>
+                )}
               </div>
             </div>
-          </TabsContent>
 
-          {/* ── TAB NOTAS ── */}
-          <TabsContent value="notas">
-            <div className="space-y-4">
+            {/* Stats row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              <div className="portal-card" style={{ padding: 16, textAlign: 'center' }}>
+                <p style={{ fontSize: 24, fontWeight: 800, color: 'hsl(43 90% 55%)', marginBottom: 4 }}>{notas.length}</p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>DISCIPLINAS</p>
+              </div>
+              <div className="portal-card" style={{ padding: 16, textAlign: 'center' }}>
+                <p style={{ fontSize: 24, fontWeight: 800, color: mediaGeral !== null ? (mediaGeral >= 7 ? '#34d399' : mediaGeral >= 5 ? '#fbbf24' : '#f87171') : 'rgba(255,255,255,0.3)', marginBottom: 4 }}>
+                  {mediaGeral !== null ? mediaGeral.toFixed(1) : '—'}
+                </p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>MÉDIA GERAL</p>
+              </div>
+              <div className="portal-card" style={{ padding: 16, textAlign: 'center' }}>
+                <p style={{ fontSize: 24, fontWeight: 800, color: '#60a5fa', marginBottom: 4 }}>{arquivos.length}</p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>DOCUMENTOS</p>
+              </div>
+            </div>
 
-              {/* Overall motivational banner */}
-              {(() => {
-                const comNota = notas.filter(n => n.nota !== null);
-                if (comNota.length === 0) return null;
-                const media = comNota.reduce((s, n) => s + Number(n.nota), 0) / comNota.length;
-                let banner: { bg: string; border: string; icon: React.ReactNode; titulo: string; msg: string };
-                if (media >= 8) {
-                  banner = {
-                    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
-                    border: 'border-emerald-200 dark:border-emerald-800',
-                    icon: <Award className="w-6 h-6 text-emerald-600" />,
-                    titulo: `Parabéns, ${session.nome.split(' ')[0]}!`,
-                    msg: `Sua média geral é ${media.toFixed(1)}. Você está com um desempenho excelente! Continue se dedicando e seja um exemplo para seus colegas!`,
-                  };
-                } else if (media >= 7) {
-                  banner = {
-                    bg: 'bg-blue-50 dark:bg-blue-950/30',
-                    border: 'border-blue-200 dark:border-blue-800',
-                    icon: <TrendingUp className="w-6 h-6 text-blue-600" />,
-                    titulo: `Ótimo desempenho, ${session.nome.split(' ')[0]}!`,
-                    msg: `Sua média geral é ${media.toFixed(1)}. Você bateu a média! Continue firme para alcançar notas ainda melhores!`,
-                  };
-                } else {
-                  banner = {
-                    bg: 'bg-amber-50 dark:bg-amber-950/30',
-                    border: 'border-amber-200 dark:border-amber-800',
-                    icon: <AlertTriangle className="w-6 h-6 text-amber-600" />,
-                    titulo: `Atenção, ${session.nome.split(' ')[0]}!`,
-                    msg: `Sua média geral é ${media.toFixed(1)}. Ainda há espaço para crescer! Dedique-se mais aos estudos e você alcançará a nota 10!`,
-                  };
-                }
-                return (
-                  <div className={`rounded-2xl border p-4 flex items-start gap-4 ${banner.bg} ${banner.border}`}>
-                    <div className="flex-shrink-0 mt-0.5">{banner.icon}</div>
-                    <div>
-                      <p className="font-bold text-foreground">{banner.titulo}</p>
-                      <p className="text-sm text-muted-foreground mt-0.5 leading-relaxed">{banner.msg}</p>
-                    </div>
+            {/* Next class */}
+            {nextEvento && (
+              <div className="portal-card-gold" style={{ padding: 18 }}>
+                <p style={{ fontSize: 11, color: 'hsl(43 90% 60%)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+                  Próxima Aula
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: 14, background: 'hsl(43 90% 50% / 0.15)', border: '1px solid hsl(43 90% 50% / 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <CalendarDays size={22} style={{ color: 'hsl(43 90% 55%)' }} />
                   </div>
-                );
-              })()}
-
-              {/* Table card */}
-              <div className="content-card overflow-hidden">
-                {/* Header */}
-                <div className="p-5 border-b border-border">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-foreground flex items-center gap-2">
-                        <GraduationCap className="w-4 h-4 text-primary" />Situação Escolar Parcial
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Aluno: <strong>{session.nome}</strong> — Matrícula: <strong className="font-mono">{session.matricula}</strong>
-                      </p>
-                    </div>
-                    {session.turmaNome && (
-                      <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-medium">
-                        {session.turmaNome}
-                      </span>
-                    )}
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: 15, color: '#e8eaf6', marginBottom: 3 }}>{nextEvento.disciplina}</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
+                      {new Date(nextEvento.data_aula + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })} • {nextEvento.professor}
+                    </p>
                   </div>
                 </div>
+              </div>
+            )}
 
-                {loadingNotas ? (
-                  <div className="flex justify-center py-12">
-                    <div className="loading-spinner" />
+            {/* Navigation cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              {[
+                { id: 'notas' as const, icon: BookOpen, label: 'Minhas Notas', desc: `${notas.length} disciplinas`, color: '#60a5fa' },
+                { id: 'calendario' as const, icon: CalendarDays, label: 'Calendário', desc: nextEvento ? 'Próxima aula agendada' : 'Ver agenda', color: 'hsl(43 90% 55%)' },
+                { id: 'ficha' as const, icon: User, label: 'Minha Ficha', desc: 'Dados pessoais', color: '#a78bfa' },
+                { id: 'documentos' as const, icon: FileText, label: 'Documentos', desc: `${arquivos.length} arquivo${arquivos.length !== 1 ? 's' : ''}`, color: '#34d399' },
+              ].map(item => (
+                <button key={item.id} onClick={() => setActiveTab(item.id)}
+                  className="portal-card"
+                  style={{ padding: 18, textAlign: 'left', cursor: 'pointer', border: 'none', transition: 'all 0.2s', display: 'block', width: '100%' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.borderColor = `${item.color}30`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)'; }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: `${item.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                    <item.icon size={20} style={{ color: item.color }} />
                   </div>
-                ) : notas.length === 0 ? (
-                  <div className="empty-state py-16">
-                    <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                    <p className="font-medium">Nenhuma nota lançada ainda</p>
-                    <p className="text-sm mt-1">As notas serão disponibilizadas pela secretaria</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {notas.map(n => {
-                      const sit = getSituacao(n.nota);
-                      const msg = getMensagem(n.nota);
-                      const notaColor = n.nota === null ? '' :
-                        n.nota >= 8 ? 'text-emerald-600' :
-                        n.nota >= 7 ? 'text-green-600' :
-                        n.nota >= 5 ? 'text-amber-600' : 'text-red-600';
-                      return (
-                        <div key={n.id} className="px-5 py-3.5 hover:bg-muted/20 transition-colors">
-                          <div className="flex items-center gap-3">
-                            {/* Nr */}
-                            <span className="text-xs font-mono text-muted-foreground w-6 text-center flex-shrink-0">
-                              {n.disciplina_numero}
-                            </span>
-                            {/* Discipline + message */}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-foreground text-sm">{n.disciplina_nome}</p>
-                              {msg.texto && (
-                                <p className={`text-xs mt-0.5 flex items-center gap-1 ${
-                                  msg.icon === 'star' ? 'text-emerald-600' :
-                                  msg.icon === 'up' ? 'text-blue-600' :
-                                  msg.icon === 'warn' ? 'text-amber-600' : 'text-red-500'
-                                }`}>
-                                  {msg.icon === 'star' && <Star className="w-3 h-3 flex-shrink-0" />}
-                                  {msg.icon === 'up' && <TrendingUp className="w-3 h-3 flex-shrink-0" />}
-                                  {msg.icon === 'warn' && <AlertTriangle className="w-3 h-3 flex-shrink-0" />}
-                                  {msg.icon === 'down' && <TrendingDown className="w-3 h-3 flex-shrink-0" />}
-                                  {msg.texto}
-                                </p>
-                              )}
-                            </div>
-                            {/* Periodo */}
-                            <span className="text-xs text-muted-foreground hidden sm:block flex-shrink-0">
-                              {n.periodo || ''}
-                            </span>
-                            {/* Nota */}
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              {n.nota !== null ? (
-                                <span className={`font-bold text-xl w-12 text-center ${notaColor}`}>
-                                  {Number(n.nota).toFixed(1)}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground text-sm w-12 text-center">—</span>
-                              )}
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold w-20 justify-center ${sit.cls}`}>
-                                {sit.label}
-                              </span>
-                            </div>
-                          </div>
+                  <p style={{ fontWeight: 700, fontSize: 14, color: '#e8eaf6', marginBottom: 3 }}>{item.label}</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{item.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ══ TAB: NOTAS ══════════════════════════════════════════ */}
+        {activeTab === 'notas' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Motivational banner */}
+            {mediaGeral !== null && (() => {
+              const isGreat = mediaGeral >= 8;
+              const isGood = mediaGeral >= 7;
+              const bg = isGreat ? 'linear-gradient(135deg, #052e1a, #073d22)' : isGood ? 'linear-gradient(135deg, #071a3e, #0c2456)' : 'linear-gradient(135deg, #2d1a00, #3d2500)';
+              const iconEl = isGreat ? <Award size={22} style={{ color: '#34d399' }} /> : isGood ? <TrendingUp size={22} style={{ color: '#60a5fa' }} /> : <AlertTriangle size={22} style={{ color: '#fbbf24' }} />;
+              const textColor = isGreat ? '#34d399' : isGood ? '#60a5fa' : '#fbbf24';
+              const msg = isGreat
+                ? `Parabéns, ${session.nome.split(' ')[0]}! Sua média ${mediaGeral.toFixed(1)} é excelente! Continue assim!`
+                : isGood
+                ? `Ótimo, ${session.nome.split(' ')[0]}! Média ${mediaGeral.toFixed(1)} — você bateu a média! Continue firme!`
+                : `Atenção, ${session.nome.split(' ')[0]}! Média ${mediaGeral.toFixed(1)} — dedique-se mais para alcançar a nota 10!`;
+              return (
+                <div className="portal-card" style={{ background: bg, border: `1px solid ${textColor}25`, padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                  <div style={{ flexShrink: 0, marginTop: 1 }}>{iconEl}</div>
+                  <p style={{ fontSize: 14, color: textColor, fontWeight: 600, lineHeight: 1.5 }}>{msg}</p>
+                </div>
+              );
+            })()}
+
+            {/* Header */}
+            <div className="portal-card" style={{ padding: 16, borderBottom: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontWeight: 700, fontSize: 15, color: '#e8eaf6', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <GraduationCap size={16} style={{ color: 'hsl(43 90% 55%)' }} />Situação Escolar Parcial
+                  </h3>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 2 }}>
+                    {session.nome} — <span style={{ fontFamily: 'monospace' }}>{session.matricula}</span>
+                  </p>
+                </div>
+                {session.turmaNome && <span style={{ fontSize: 11, background: 'hsl(221 83% 53% / 0.15)', color: '#93c5fd', padding: '4px 10px', borderRadius: 20, border: '1px solid hsl(221 83% 53% / 0.2)', fontWeight: 600 }}>{session.turmaNome}</span>}
+              </div>
+            </div>
+
+            {loadingNotas ? (
+              <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                <div className="loading-spinner" style={{ margin: '0 auto', borderColor: 'rgba(255,255,255,0.1)', borderTopColor: 'hsl(43 90% 55%)' }} />
+              </div>
+            ) : notas.length === 0 ? (
+              <div className="portal-card" style={{ padding: 48, textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
+                <BookOpen size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                <p style={{ fontWeight: 600 }}>Nenhuma nota lançada ainda</p>
+                <p style={{ fontSize: 13, marginTop: 4 }}>As notas serão disponibilizadas pela secretaria</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {notas.map(n => {
+                  const sit = getSituacao(n.nota);
+                  const msg = getMensagem(n.nota);
+                  return (
+                    <div key={n.id} className="portal-card" style={{ padding: '14px 18px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'rgba(255,255,255,0.3)', width: 24, textAlign: 'center', flexShrink: 0 }}>{n.disciplina_numero}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontWeight: 600, fontSize: 14, color: '#e8eaf6' }}>{n.disciplina_nome}</p>
+                          {msg && (
+                            <p style={{ fontSize: 11, color: msg.color, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              {msg.icon === 'star' && <Star size={11} />}
+                              {msg.icon === 'up' && <TrendingUp size={11} />}
+                              {msg.icon === 'warn' && <AlertTriangle size={11} />}
+                              {msg.icon === 'down' && <TrendingDown size={11} />}
+                              {msg.text}
+                            </p>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {notas.length > 0 && (
-                  <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-xs text-muted-foreground">{notas.length} disciplina{notas.length !== 1 ? 's' : ''}</span>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Excelente 8–10
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />Aprovado 7
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Exame 5–6
-                      </span>
-                      <span className="flex items-center gap-1 hidden sm:flex">
-                        <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Reprovado &lt;5
-                      </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                          <span style={{ fontSize: 22, fontWeight: 800, color: sit.color, minWidth: 40, textAlign: 'center' }}>
+                            {n.nota !== null ? Number(n.nota).toFixed(1) : '—'}
+                          </span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: sit.color, background: `${sit.color}15`, border: `1px solid ${sit.color}30`, padding: '3px 10px', borderRadius: 20, minWidth: 72, textAlign: 'center' }}>
+                            {sit.label}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
+            )}
+            {notas.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 16, fontSize: 11, color: 'rgba(255,255,255,0.3)', flexWrap: 'wrap' }}>
+                {[['#34d399','Excelente 8–10'], ['#60a5fa','Aprovado 7'], ['#fbbf24','Exame 5–6'], ['#f87171','Reprovado <5']].map(([c, l]) => (
+                  <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: c, display: 'inline-block' }} />{l}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══ TAB: CALENDÁRIO ═════════════════════════════════════ */}
+        {activeTab === 'calendario' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Banner */}
+            <div className="portal-card" style={{
+              background: 'linear-gradient(135deg, #0a1428 0%, #0d1a40 100%)',
+              border: '1px solid hsl(43 90% 50% / 0.2)',
+              padding: '20px 24px', textAlign: 'center'
+            }}>
+              <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 4 }}>Segue o calendário das próximas aulas,</p>
+              <p style={{ fontSize: 20, fontWeight: 800 }} className="gold-gradient">se organizem!</p>
             </div>
-          </TabsContent>
 
-          {/* ── TAB CALENDÁRIO ── */}
-          <TabsContent value="calendario">
             {(() => {
-              const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-              const today = new Date(); today.setHours(0,0,0,0);
-
-              // Group events by month
               const groups: Record<string, Evento[]> = {};
               eventos.forEach(e => {
                 const d = new Date(e.data_aula + 'T00:00:00');
@@ -909,219 +720,288 @@ export default function PortalAluno() {
                 if (!groups[key]) groups[key] = [];
                 groups[key].push(e);
               });
-
               if (Object.keys(groups).length === 0) return (
-                <div className="empty-state py-16">
-                  <CalendarDays className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="font-medium">Nenhum evento disponível</p>
+                <div className="portal-card" style={{ padding: 48, textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
+                  <CalendarDays size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} /><p>Nenhum evento cadastrado</p>
                 </div>
               );
-
-              return (
-                <div className="space-y-1 mb-4">
-                  {/* Title banner */}
-                  <div className="rounded-2xl p-5 mb-6 text-center"
-                    style={{ background: 'linear-gradient(135deg, hsl(220 70% 20%), hsl(220 70% 30%))' }}>
-                    <p className="text-white/70 text-sm font-medium mb-1">Segue o calendário das próximas aulas,</p>
-                    <p className="text-white font-bold text-xl" style={{ color: '#f0a500' }}>se organizem!</p>
-                  </div>
-
-                  <div className="space-y-8">
-                    {Object.entries(groups).map(([key, evs]) => {
-                      const [year, month] = key.split('-').map(Number);
-                      const lastDayOfMonth = new Date(year, month, 0);
-                      const isPast = lastDayOfMonth < today;
-                      const isCurrent = !isPast && new Date(year, month - 1, 1) <= today;
-
-                      const monthLabel = `${MESES_PT[month-1].toUpperCase()} ${year}`;
-
-                      return (
-                        <div key={key} className={`transition-all ${isPast ? 'opacity-40 grayscale' : ''}`}>
-                          {/* Month header */}
-                          <div className="flex items-center gap-2 mb-4">
-                            <Clock className={`w-5 h-5 ${isPast ? 'text-muted-foreground' : isCurrent ? 'text-primary' : 'text-primary'}`} />
-                            <h3 className={`font-extrabold text-lg tracking-wide ${
-                              isPast ? 'text-muted-foreground' : 'text-foreground'
-                            }`} style={!isPast ? { color: 'hsl(220 70% 30%)' } : undefined}>
-                              {monthLabel}
-                            </h3>
-                            {isPast && (
-                              <span className="text-xs bg-muted text-muted-foreground px-2.5 py-0.5 rounded-full">Passado</span>
+              return Object.entries(groups).map(([key, evs]) => {
+                const [year, month] = key.split('-').map(Number);
+                const isPast = new Date(year, month, 0) < today;
+                return (
+                  <div key={key} style={{ opacity: isPast ? 0.4 : 1, filter: isPast ? 'grayscale(0.6)' : 'none', transition: 'all 0.3s' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <Clock size={16} style={{ color: isPast ? 'rgba(255,255,255,0.3)' : 'hsl(43 90% 55%)' }} />
+                      <span style={{ fontWeight: 800, fontSize: 15, color: isPast ? 'rgba(255,255,255,0.3)' : '#e8eaf6', letterSpacing: '0.05em' }}>
+                        {MESES_PT[month-1].toUpperCase()} {year}
+                      </span>
+                      {isPast && <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.06)', padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>PASSADO</span>}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                      {evs.map(ev => {
+                        const d = new Date(ev.data_aula + 'T00:00:00');
+                        const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        return (
+                          <div key={ev.id} className={isPast ? 'portal-card' : 'portal-card-gold'} style={{ padding: 16 }}>
+                            <p style={{ fontSize: 11, fontFamily: 'monospace', color: isPast ? 'rgba(255,255,255,0.3)' : 'hsl(43 90% 60%)', fontWeight: 600, marginBottom: 10 }}>{dateStr}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                              <div style={{ width: 28, height: 28, borderRadius: 8, background: 'hsl(221 60% 40% / 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <span style={{ fontWeight: 800, fontSize: 12, color: '#93c5fd' }}>{ev.professor.charAt(0)}</span>
+                              </div>
+                              <span style={{ fontWeight: 700, fontSize: 14, color: '#e8eaf6' }}>{ev.professor}</span>
+                            </div>
+                            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: ev.obs ? 12 : 0 }}>{ev.disciplina}</p>
+                            {ev.obs && (
+                              <div style={{ background: 'hsl(43 80% 50% / 0.08)', border: '1px solid hsl(43 80% 50% / 0.25)', borderRadius: 10, padding: 12 }}>
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start', marginBottom: 6 }}>
+                                  <AlertTriangle size={13} style={{ color: 'hsl(43 90% 60%)', flexShrink: 0, marginTop: 1 }} />
+                                  <span style={{ fontSize: 10, fontWeight: 800, color: 'hsl(43 90% 60%)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Observação:</span>
+                                </div>
+                                <p style={{ fontSize: 12, color: 'hsl(43 70% 70%)', lineHeight: 1.5 }}>{ev.obs}</p>
+                                {ev.provas_disciplinas && (
+                                  <p style={{ fontSize: 12, fontWeight: 600, color: 'hsl(43 80% 65%)', marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'hsl(43 90% 60%)', display: 'inline-block', flexShrink: 0 }} />{ev.provas_disciplinas}
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </div>
-
-                          {/* Events grid */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {evs.map(ev => {
-                              const d = new Date(ev.data_aula + 'T00:00:00');
-                              const dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                              const isToday = d.getTime() === today.getTime();
-                              const isFuture = d > today;
-
-                              return (
-                                <div key={ev.id} className={`rounded-2xl border p-4 transition-all ${
-                                  isPast
-                                    ? 'bg-card border-border'
-                                    : isToday
-                                    ? 'border-primary/50 shadow-md'
-                                    : isFuture
-                                    ? 'bg-card border-border shadow-sm hover:shadow-md hover:-translate-y-0.5'
-                                    : 'bg-card border-border'
-                                }`}
-                                style={!isPast && isFuture ? {
-                                  borderColor: 'hsl(220 70% 80%)',
-                                  background: 'hsl(220 70% 98%)'
-                                } : undefined}>
-                                  {/* Date */}
-                                  <p className="text-xs font-mono font-semibold mb-3"
-                                    style={!isPast ? { color: 'hsl(220 60% 45%)' } : undefined}>
-                                    {dateStr}
-                                    {isToday && <span className="ml-2 text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">Hoje</span>}
-                                  </p>
-
-                                  {/* Professor */}
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                      isPast ? 'bg-muted' : 'bg-blue-100'
-                                    }`}>
-                                      <span className="text-xs font-bold" style={!isPast ? { color: 'hsl(220 60% 40%)' } : undefined}>
-                                        {ev.professor.charAt(0)}
-                                      </span>
-                                    </div>
-                                    <span className="font-bold text-sm text-foreground">{ev.professor}</span>
-                                  </div>
-
-                                  {/* Discipline */}
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <BookOpen className={`w-3.5 h-3.5 flex-shrink-0 ${isPast ? 'text-muted-foreground' : 'text-muted-foreground'}`} />
-                                    <span className="text-sm text-muted-foreground">{ev.disciplina}</span>
-                                  </div>
-
-                                  {/* Obs */}
-                                  {ev.obs && (
-                                    <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3">
-                                      <div className="flex items-start gap-1.5 mb-1.5">
-                                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
-                                        <span className="text-xs font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wide">Observação:</span>
-                                      </div>
-                                      <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">{ev.obs}</p>
-                                      {ev.provas_disciplinas && (
-                                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 mt-1.5 flex items-center gap-1">
-                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
-                                          {ev.provas_disciplinas}
-                                        </p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
+                );
+              });
             })()}
-          </TabsContent>
+          </div>
+        )}
 
-          {/* ── TAB DOCUMENTOS ── */}
-          <TabsContent value="documentos">
-            <div className="space-y-4">
-              {/* Upload area */}
-              <div className="content-card p-5">
-                <h3 className="font-semibold text-foreground mb-1 flex items-center gap-2">
-                  <Upload className="w-4 h-4 text-primary" />Enviar Documento
-                </h3>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Certificados, comprovantes, declarações e outros documentos pessoais (máx 20 MB)
-                </p>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  onChange={handleUploadFile}
-                  className="hidden"
-                  id="file-upload"
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                />
-                <label
-                  htmlFor="file-upload"
-                  className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-border rounded-xl cursor-pointer
-                    hover:border-primary/40 hover:bg-primary/5 transition-all
-                    ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                  {uploading ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                      <span className="text-sm text-muted-foreground">Enviando...</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <Upload className="w-6 h-6 text-muted-foreground" />
-                      <span className="text-sm font-medium text-foreground">Clique para selecionar arquivo</span>
-                      <span className="text-xs text-muted-foreground">PDF, DOC, JPG, PNG</span>
-                    </div>
-                  )}
-                </label>
+        {/* ══ TAB: MINHA FICHA ════════════════════════════════════ */}
+        {activeTab === 'ficha' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Dados Escolares */}
+            <Section title="Dados Escolares" icon={<Hash size={15} style={{ color: 'hsl(43 90% 55%)' }} />}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                <ReadField label="Matrícula" value={session.matricula} mono />
+                <ReadField label="Turma" value={session.turmaNome || '—'} />
+                <ReadField label="Nome" value={session.nome} />
               </div>
+            </Section>
 
-              {/* File list */}
-              <div className="content-card overflow-hidden">
-                <div className="p-5 border-b border-border">
-                  <h3 className="font-semibold text-foreground flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />Meus Documentos
-                    {arquivos.length > 0 && (
-                      <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-medium">
-                        {arquivos.length}
-                      </span>
-                    )}
-                  </h3>
+            <Section title="Dados Pessoais" icon={<User size={15} style={{ color: 'hsl(43 90% 55%)' }} />}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <PortalInput label="Nome Completo" value={profile.nome_completo} onChange={v => setP('nome_completo', v)} placeholder="Nome completo" />
                 </div>
-
-                {arquivos.length === 0 ? (
-                  <div className="empty-state py-12">
-                    <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                    <p className="font-medium">Nenhum documento enviado</p>
-                    <p className="text-sm mt-1">Use o campo acima para enviar seus documentos</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {arquivos.map(arq => (
-                      <div key={arq.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-4 h-4 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{arq.nome_arquivo}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {new Date(arq.uploaded_at).toLocaleDateString('pt-BR', {
-                                day: '2-digit', month: '2-digit', year: 'numeric',
-                                hour: '2-digit', minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
-                          <Button asChild variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary">
-                            <a href={arq.url} target="_blank" rel="noopener noreferrer">
-                              <Download className="w-3.5 h-3.5" />
-                            </a>
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteArquivo(arq)}
-                            className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <PortalInput label="CPF" value={profile.cpf} onChange={v => setP('cpf', v)} placeholder="000.000.000-00" />
+                <PortalInput label="RG" value={profile.rg} onChange={v => setP('rg', v)} placeholder="Número do RG" />
+                <PortalInput label="Órgão Expedidor" value={profile.orgao_expedidor} onChange={v => setP('orgao_expedidor', v)} placeholder="SSP/XX" />
+                <PortalInput label="Data Nascimento" type="date" value={profile.data_nascimento} onChange={v => setP('data_nascimento', v)} />
+                <PortalInput label="Cidade Nascimento" value={profile.cidade_nascimento} onChange={v => setP('cidade_nascimento', v)} placeholder="Cidade" />
+                <PortalInput label="UF Nascimento" value={profile.uf_nascimento} onChange={v => setP('uf_nascimento', v)} placeholder="XX" />
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>Sexo</label>
+                  <Select value={profile.sexo || 'none'} onValueChange={v => setP('sexo', v === 'none' ? '' : v)}>
+                    <SelectTrigger className="portal-input" style={{ height: 'auto', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e8eaf0', borderRadius: 12 }}>
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      <SelectItem value="Masculino">Masculino</SelectItem>
+                      <SelectItem value="Feminino">Feminino</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>Estado Civil</label>
+                  <Select value={profile.estado_civil || 'none'} onValueChange={v => setP('estado_civil', v === 'none' ? '' : v)}>
+                    <SelectTrigger className="portal-input" style={{ height: 'auto', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e8eaf0', borderRadius: 12 }}>
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
+                      <SelectItem value="Casado(a)">Casado(a)</SelectItem>
+                      <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
+                      <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <PortalInput label="Profissão" value={profile.profissao} onChange={v => setP('profissao', v)} placeholder="Profissão" />
               </div>
+            </Section>
+
+            <Section title="Contato" icon={<Phone size={15} style={{ color: 'hsl(43 90% 55%)' }} />}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                <PortalInput label="Celular Principal" value={profile.celular1} onChange={v => setP('celular1', v)} placeholder="(00) 00000-0000" />
+                <PortalInput label="Celular Secundário" value={profile.celular2} onChange={v => setP('celular2', v)} placeholder="(00) 00000-0000" />
+                <PortalInput label="E-mail" type="email" value={alunoEmail} onChange={setAlunoEmail} placeholder="email@exemplo.com" />
+                <PortalInput label="E-mail Alternativo" type="email" value={profile.email_contato} onChange={v => setP('email_contato', v)} placeholder="email@exemplo.com" />
+              </div>
+            </Section>
+
+            <Section title="Endereço" icon={<MapPin size={15} style={{ color: 'hsl(43 90% 55%)' }} />}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <PortalInput label="Endereço" value={profile.endereco} onChange={v => setP('endereco', v)} placeholder="Rua, número, complemento" />
+                </div>
+                <PortalInput label="CEP" value={profile.cep} onChange={v => setP('cep', v)} placeholder="00000-000" />
+                <PortalInput label="Bairro" value={profile.bairro} onChange={v => setP('bairro', v)} placeholder="Bairro" />
+                <PortalInput label="Cidade" value={profile.cidade} onChange={v => setP('cidade', v)} placeholder="Cidade" />
+                <PortalInput label="UF" value={profile.uf} onChange={v => setP('uf', v)} placeholder="XX" />
+              </div>
+            </Section>
+
+            <Section title="Igreja" icon={<Building2 size={15} style={{ color: 'hsl(43 90% 55%)' }} />}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                <PortalInput label="Congregação" value={profile.congregacao} onChange={v => setP('congregacao', v)} placeholder="Nome da congregação" />
+                <PortalInput label="Igreja Membro" value={profile.igreja_membro} onChange={v => setP('igreja_membro', v)} placeholder="Igreja" />
+                <PortalInput label="Função na Igreja" value={profile.funcao_igreja} onChange={v => setP('funcao_igreja', v)} placeholder="Pastor, Diácono..." />
+                <PortalInput label="Data Conversão" type="date" value={profile.data_conversao} onChange={v => setP('data_conversao', v)} />
+                <PortalInput label="Data Batismo" type="date" value={profile.data_batismo} onChange={v => setP('data_batismo', v)} />
+              </div>
+            </Section>
+
+            <Section title="Família e Formação" icon={<Heart size={15} style={{ color: 'hsl(43 90% 55%)' }} />}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+                <PortalInput label="Nome do Pai" value={profile.nome_pai} onChange={v => setP('nome_pai', v)} placeholder="Nome do pai" />
+                <PortalInput label="Nome da Mãe" value={profile.nome_mae} onChange={v => setP('nome_mae', v)} placeholder="Nome da mãe" />
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', marginBottom: 6 }}>Nível de Formação</label>
+                  <Select value={profile.nivel_formacao || 'none'} onValueChange={v => setP('nivel_formacao', v === 'none' ? '' : v)}>
+                    <SelectTrigger className="portal-input" style={{ height: 'auto', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: '#e8eaf0', borderRadius: 12 }}>
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">—</SelectItem>
+                      <SelectItem value="Fundamental">Fundamental</SelectItem>
+                      <SelectItem value="Médio">Médio</SelectItem>
+                      <SelectItem value="Superior">Superior</SelectItem>
+                      <SelectItem value="Pós-graduação">Pós-graduação</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <PortalInput label="Instituição" value={profile.instituicao} onChange={v => setP('instituicao', v)} placeholder="Escola/Faculdade" />
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <PortalInput label="Habilidades / Talentos" value={profile.habilidades} onChange={v => setP('habilidades', v)} placeholder="Ex: Música, Liderança..." />
+                </div>
+              </div>
+            </Section>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={handleSaveProfile} disabled={savingProfile} className="gold-btn"
+                style={{ padding: '10px 28px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 14 }}>
+                {savingProfile ? <div style={{ width: 15, height: 15, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#080c18', animation: 'spin 0.7s linear infinite' }} /> : <Save size={15} />}
+                {savingProfile ? 'Salvando...' : 'Salvar Informações'}
+              </button>
             </div>
-          </TabsContent>
-        </Tabs>
+          </div>
+        )}
+
+        {/* ══ TAB: DOCUMENTOS ═════════════════════════════════════ */}
+        {activeTab === 'documentos' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="portal-card" style={{ padding: 20 }}>
+              <p style={{ fontWeight: 700, fontSize: 14, color: '#e8eaf6', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Upload size={15} style={{ color: 'hsl(43 90% 55%)' }} />Enviar Documento
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', marginBottom: 16 }}>
+                Certificados, comprovantes, declarações e outros documentos pessoais (máx 20 MB)
+              </p>
+              <input ref={fileRef} type="file" id="file-upload" onChange={handleUploadFile} className="hidden" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp" />
+              <label htmlFor="file-upload" style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                height: 100, border: '2px dashed rgba(255,255,255,0.1)', borderRadius: 14, cursor: uploading ? 'wait' : 'pointer',
+                transition: 'all 0.2s', opacity: uploading ? 0.5 : 1
+              }}
+                onMouseEnter={e => { if (!uploading) (e.currentTarget as HTMLLabelElement).style.borderColor = 'hsl(43 90% 50% / 0.4)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLLabelElement).style.borderColor = 'rgba(255,255,255,0.1)'; }}>
+                {uploading ? (
+                  <div className="loading-spinner" style={{ borderColor: 'rgba(255,255,255,0.1)', borderTopColor: 'hsl(43 90% 55%)' }} />
+                ) : (
+                  <>
+                    <Upload size={22} style={{ color: 'rgba(255,255,255,0.3)', marginBottom: 8 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Clique para selecionar arquivo</span>
+                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 2 }}>PDF, DOC, JPG, PNG</span>
+                  </>
+                )}
+              </label>
+            </div>
+
+            <div className="portal-card" style={{ overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <p style={{ fontWeight: 700, fontSize: 14, color: '#e8eaf6', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FileText size={15} style={{ color: 'hsl(43 90% 55%)' }} />Meus Documentos
+                  {arquivos.length > 0 && <span style={{ fontSize: 11, background: 'hsl(43 90% 50% / 0.12)', color: 'hsl(43 90% 60%)', padding: '2px 8px', borderRadius: 20, border: '1px solid hsl(43 90% 50% / 0.2)', fontWeight: 600 }}>{arquivos.length}</span>}
+                </p>
+              </div>
+              {arquivos.length === 0 ? (
+                <div style={{ padding: '40px 20px', textAlign: 'center', color: 'rgba(255,255,255,0.25)' }}>
+                  <FileText size={36} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
+                  <p style={{ fontWeight: 600, fontSize: 13 }}>Nenhum documento enviado</p>
+                </div>
+              ) : (
+                <div>
+                  {arquivos.map(arq => (
+                    <div key={arq.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', transition: 'background 0.15s' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.03)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = ''; }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'hsl(221 60% 30% / 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <FileText size={16} style={{ color: '#93c5fd' }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#e8eaf6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{arq.nome_arquivo}</p>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+                          {new Date(arq.uploaded_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <a href={arq.url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(96,165,250,0.1)', color: '#60a5fa', transition: 'all 0.15s', textDecoration: 'none' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(96,165,250,0.2)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(96,165,250,0.1)'; }}>
+                          <Download size={14} />
+                        </a>
+                        <button onClick={() => handleDeleteArquivo(arq)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(248,113,113,0.08)', color: '#f87171', border: 'none', cursor: 'pointer', transition: 'all 0.15s' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(248,113,113,0.18)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(248,113,113,0.08)'; }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </main>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .sm\\:inline-block { display: none; }
+        @media (min-width: 640px) { .sm\\:inline-block { display: inline-block !important; } }
+      `}</style>
+    </div>
+  );
+}
+
+/* ─── Helper sub-components ─────────────────────────────────── */
+function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="portal-card" style={{ padding: 20 }}>
+      <p style={{ fontWeight: 700, fontSize: 14, color: '#e8eaf6', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        {icon}{title}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function ReadField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{label}</p>
+      <p style={{ fontWeight: 600, fontSize: 14, color: '#e8eaf6', fontFamily: mono ? 'monospace' : undefined }}>{value || '—'}</p>
     </div>
   );
 }
