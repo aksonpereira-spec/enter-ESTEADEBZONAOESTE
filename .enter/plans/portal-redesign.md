@@ -1,51 +1,94 @@
-# Monitoramento de Acessos do Portal do Aluno
+# Multi-tenancy: Portal Núcleo ESTEADEB
 
-## Objetivo
-Permitir ao coordenador ver em tempo real quem está logado no portal do aluno e o histórico de acessos recentes, para acompanhar se os alunos estão utilizando o sistema.
+## Contexto
+Transformar o sistema em multi-tenant para que qualquer coordenador com email @esteadeb.org.br possa fazer login e ter seu próprio banco de dados isolado. O coordenador Zona Oeste (admin/1234) mantém seu acesso e dados existentes.
 
-## Abordagem
+## Decisões
+- `admin/1234` continua funcionando para Zona Oeste (ID fixo: `'00000000-0000-0000-0000-000000000001'`)
+- Coordenadores `@esteadeb.org.br` usam tabela `diretores` (já existente), com `diretores.id` como seu `coordenador_id`
+- **Todos os dados são filtrados por `coordenador_id`** — sem compartilhamento entre núcleos
+- Dados existentes do Zona Oeste recebem `coordenador_id = ZONA_OESTE_ID`
 
-### 1. Nova tabela: `portal_acessos`
-Registra cada sessão de acesso ao portal do aluno.
+---
 
-```sql
-CREATE TABLE portal_acessos (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  aluno_id UUID REFERENCES alunos(id) ON DELETE CASCADE,
-  nome TEXT NOT NULL,
-  matricula TEXT NOT NULL,
-  turma_nome TEXT DEFAULT '',
-  login_em TIMESTAMPTZ DEFAULT now(),
-  ultimo_heartbeat TIMESTAMPTZ DEFAULT now(),
-  logout_em TIMESTAMPTZ DEFAULT NULL,
-  online BOOLEAN DEFAULT TRUE,
-  dispositivo TEXT DEFAULT ''
-);
+## Fase 1 — Migração do Banco
+
+Adicionar `coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'` a 17 tabelas:
+
+```
+alunos, classes, mensalidades, notas_aluno, calendario_aulas,
+nucleo_config, estoque_materiais, loja_pedidos, loja_usuarios,
+student_profiles, observacoes_portal, portal_acessos,
+attendance_sessions, portal_arquivos, disciplinas_turma,
+modulos, honorarios_pagamentos
 ```
 
-Habilitar Realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE "portal_acessos";`
+Após adicionar colunas: `UPDATE tabela SET coordenador_id = '00000000-0000-0000-0000-000000000001'` em todas.
 
-### 2. Modificações em `src/pages/PortalAluno.tsx`
-- **No `handleLogin`**: após login bem-sucedido → `INSERT` em `portal_acessos`, salvar `acessoId` no estado e no `localStorage`
-- **No `useEffect` de inicialização**: se restaurar sessão do `localStorage` → `INSERT` novo acesso (reentrada)
-- **Heartbeat**: `useInterval` de 60 segundos → `UPDATE ultimo_heartbeat = now()` enquanto logado
-- **No `handleLogout` e `useEffect` de unmount**: `UPDATE online = false, logout_em = now()`
+---
 
-### 3. Novo arquivo: `src/components/tabs/MonitoramentoTab.tsx`
-Painel do coordenador com:
-- **Online agora**: alunos com `online = true` AND `ultimo_heartbeat > now() - 3 min` (pulsando verde)
-- **Histórico**: últimos acessos (24h / 7 dias) com data/hora de login e logout
-- **Stats**: total online, logins hoje, logins na semana
-- **Realtime**: subscription no canal `portal_acessos` para atualizar a lista sem refresh
-- **Filtros**: todos / online agora / por turma
+## Fase 2 — AuthContext
 
-### 4. Modificações em `src/pages/MainApp.tsx`
-- Adicionar import `Activity` do lucide-react
-- Adicionar tab `acessos` com label "Monitoramento" no array `TABS`
-- Importar e renderizar `<MonitoramentoTab />`
+Adicionar `coordenadorId: string | null` ao contexto:
+- Login `admin` → `coordenadorId = '00000000-0000-0000-0000-000000000001'`
+- Login director → `coordenadorId = diretores.id` (buscar após autenticar)
+- Expor via `useAuth().coordenadorId`
 
-## Arquivos modificados
-- `supabase/migrations/` — nova tabela + RLS + realtime
-- `src/pages/PortalAluno.tsx` — login/logout/heartbeat
-- `src/components/tabs/MonitoramentoTab.tsx` — novo componente
-- `src/pages/MainApp.tsx` — nova tab
+---
+
+## Fase 3 — Todos os Tab Components
+
+Em cada componente, adicionar:
+```typescript
+const { coordenadorId } = useAuth();
+```
+
+E filtrar TODAS as queries:
+- SELECT: `.eq('coordenador_id', coordenadorId)`
+- INSERT: incluir `coordenador_id: coordenadorId` no payload
+- UPDATE/DELETE: já são filtrados por `id` (ok)
+
+**Arquivos a modificar:**
+- `src/components/tabs/AlunosTab.tsx`
+- `src/components/tabs/TurmasTab.tsx`
+- `src/components/tabs/MensalidadeTab.tsx`
+- `src/components/tabs/ChamadaTab.tsx`
+- `src/components/tabs/FinanceiroTab.tsx`
+- `src/components/tabs/FichasTab.tsx`
+- `src/components/tabs/EstoqueTab.tsx`
+- `src/components/tabs/CalendarioTab.tsx`
+- `src/components/tabs/MensagensTab.tsx`
+- `src/components/tabs/MonitoramentoTab.tsx`
+- `src/components/tabs/ConfigTab.tsx`
+- `src/pages/PortalAluno.tsx`
+- `src/pages/LojaAluno.tsx`
+
+---
+
+## Fase 4 — ConfigTab: Setup Wizard
+
+Quando `nucleo_config` não tiver registro para o `coordenador_id` atual, exibir tela de boas-vindas/setup pedindo:
+- Nome do Núcleo
+- Nome do Coordenador
+- Nome da Esposa (opcional)
+- Ano
+
+Após salvar, cria registro na `nucleo_config` com `coordenador_id`.
+
+---
+
+## Fase 5 — Branding
+
+- `src/pages/Login.tsx`: trocar "ESTEADEB NÚCLEO ZONA OESTE" → "Portal Núcleo ESTEADEB"
+- `src/pages/MainApp.tsx`: nada muda (usa `nucleo_config` dinamicamente já)
+- `src/pages/PortalAluno.tsx`: cabeçalho "Portal ESTEADEB" genérico
+
+---
+
+## Arquivos Modificados (resumo)
+1. `supabase/migrations/` — 1 migration script grande
+2. `src/contexts/AuthContext.tsx` — adicionar `coordenadorId`
+3. `src/components/tabs/*.tsx` — todos os 11 tabs
+4. `src/pages/PortalAluno.tsx` — queries filtradas
+5. `src/pages/LojaAluno.tsx` — queries filtradas
+6. `src/pages/Login.tsx` — branding genérico
