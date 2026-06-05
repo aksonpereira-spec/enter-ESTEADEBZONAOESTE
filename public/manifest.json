@@ -12,13 +12,13 @@
   "categories": ["education"],
   "icons": [
     {
-      "src": "/logo-esteadeb.png",
+      "src": "https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100037752/12023134-32b3-4a.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/logo-esteadeb.png",
+      "src": "https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100037752/12023134-32b3-4a.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
