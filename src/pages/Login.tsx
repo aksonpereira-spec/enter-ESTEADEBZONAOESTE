@@ -152,7 +152,7 @@ const Login = () => {
                   <p className="text-white/40 text-sm mt-1">Selecione o tipo de acesso</p>
                 </div>
 
-                {/* Coordenador */}
+                {/* Coordenador Zona Oeste (admin) */}
                 <button onClick={() => setMode('admin')}
                   className="w-full rounded-2xl p-5 text-left transition-all hover:scale-[1.02] group"
                   style={{ background: 'hsl(0 0% 100% / 0.08)', border: '1px solid hsl(0 0% 100% / 0.15)' }}>
@@ -161,14 +161,14 @@ const Login = () => {
                       <Shield className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-white font-semibold text-sm">Acesso do Coordenador</p>
-                      <p className="text-white/40 text-xs mt-0.5">Gestão completa do sistema</p>
+                      <p className="text-white font-semibold text-sm">Coordenador — Zona Oeste</p>
+                      <p className="text-white/40 text-xs mt-0.5">Acesso com usuário e senha</p>
                     </div>
                     <LogIn className="w-4 h-4 text-white/30 ml-auto group-hover:text-white/60 transition-colors" />
                   </div>
                 </button>
 
-                {/* Diretor */}
+                {/* Outros Coordenadores / Diretores */}
                 <button onClick={() => setMode('director')}
                   className="w-full rounded-2xl p-5 text-left transition-all hover:scale-[1.02] group"
                   style={{ background: 'hsl(0 0% 100% / 0.08)', border: '1px solid hsl(0 0% 100% / 0.15)' }}>
@@ -177,8 +177,8 @@ const Login = () => {
                       <Crown className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="text-white font-semibold text-sm">Acesso do Diretor</p>
-                      <p className="text-white/40 text-xs mt-0.5">Entre com seu email @esteadeb.org.br</p>
+                      <p className="text-white font-semibold text-sm">Coordenador / Diretor</p>
+                      <p className="text-white/40 text-xs mt-0.5">Entre com seu e-mail @esteadeb.org.br</p>
                     </div>
                     <LogIn className="w-4 h-4 text-white/30 ml-auto group-hover:text-white/60 transition-colors" />
                   </div>
