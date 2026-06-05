@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
         globPatterns: ['**/*.{js,css,html,png,svg,ico,webp}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/supabase/],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MiB
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
