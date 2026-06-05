@@ -3764,6 +3764,52 @@ export type Database = {
           },
         ]
       }
+      portal_acessos: {
+        Row: {
+          aluno_id: string | null
+          dispositivo: string | null
+          id: string
+          login_em: string | null
+          logout_em: string | null
+          matricula: string
+          nome: string
+          online: boolean | null
+          turma_nome: string | null
+          ultimo_heartbeat: string | null
+        }
+        Insert: {
+          aluno_id?: string | null
+          dispositivo?: string | null
+          id?: string
+          login_em?: string | null
+          logout_em?: string | null
+          matricula?: string
+          nome?: string
+          online?: boolean | null
+          turma_nome?: string | null
+          ultimo_heartbeat?: string | null
+        }
+        Update: {
+          aluno_id?: string | null
+          dispositivo?: string | null
+          id?: string
+          login_em?: string | null
+          logout_em?: string | null
+          matricula?: string
+          nome?: string
+          online?: boolean | null
+          turma_nome?: string | null
+          ultimo_heartbeat?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_acessos_aluno_id_fkey"
+            columns: ["aluno_id"]
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_arquivos: {
         Row: {
           aluno_id: string

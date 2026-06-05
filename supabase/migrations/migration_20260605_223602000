@@ -1,0 +1,20 @@
+
+CREATE TABLE IF NOT EXISTS portal_acessos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  aluno_id UUID REFERENCES alunos(id) ON DELETE CASCADE,
+  nome TEXT NOT NULL DEFAULT '',
+  matricula TEXT NOT NULL DEFAULT '',
+  turma_nome TEXT DEFAULT '',
+  login_em TIMESTAMPTZ DEFAULT now(),
+  ultimo_heartbeat TIMESTAMPTZ DEFAULT now(),
+  logout_em TIMESTAMPTZ DEFAULT NULL,
+  online BOOLEAN DEFAULT TRUE,
+  dispositivo TEXT DEFAULT ''
+);
+
+ALTER TABLE portal_acessos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all for authenticated" ON portal_acessos
+  FOR ALL USING (true) WITH CHECK (true);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE portal_acessos;

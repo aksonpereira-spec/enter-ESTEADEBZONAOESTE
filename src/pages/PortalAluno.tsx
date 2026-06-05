@@ -201,6 +201,45 @@ export default function PortalAluno() {
   const [uploadingMensId, setUploadingMensId] = useState<string | null>(null);
   const pendingMensIdRef = useRef<string | null>(null);
   const mensCompRef = useRef<HTMLInputElement>(null);
+  const acessoIdRef = useRef<string | null>(null);
+
+  /* ─── Acesso tracking helpers ─────────────────────────── */
+  const registerAcesso = useCallback(async (s: AlunoSession) => {
+    const { data } = await supabase.from('portal_acessos').insert({
+      aluno_id: s.alunoId,
+      nome: s.nome,
+      matricula: s.matricula,
+      turma_nome: s.turmaNome || '',
+      dispositivo: navigator.userAgent,
+      online: true,
+    }).select('id').maybeSingle();
+    if (data?.id) acessoIdRef.current = data.id;
+  }, []);
+
+  const closeAcesso = useCallback(async () => {
+    if (!acessoIdRef.current) return;
+    await supabase.from('portal_acessos').update({ online: false, logout_em: new Date().toISOString() }).eq('id', acessoIdRef.current);
+    acessoIdRef.current = null;
+  }, []);
+
+  // Heartbeat every 60s while logged in
+  useEffect(() => {
+    if (screen !== 'portal') return;
+    const tick = () => {
+      if (acessoIdRef.current) {
+        supabase.from('portal_acessos').update({ ultimo_heartbeat: new Date().toISOString(), online: true }).eq('id', acessoIdRef.current).then(() => {});
+      }
+    };
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [screen]);
+
+  // Close acesso on tab/window close
+  useEffect(() => {
+    const onUnload = () => { closeAcesso(); };
+    window.addEventListener('beforeunload', onUnload);
+    return () => { window.removeEventListener('beforeunload', onUnload); closeAcesso(); };
+  }, [closeAcesso]);
 
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
@@ -209,9 +248,10 @@ export default function PortalAluno() {
         const s = JSON.parse(saved) as AlunoSession;
         setSession(s);
         setScreen('portal');
+        setTimeout(() => registerAcesso(s), 0);
       } catch { /* ignore */ }
     }
-  }, []);
+  }, [registerAcesso]);
 
   const loadProfile = useCallback(async (alunoId: string) => {
     const { data: aluno } = await supabase.from('alunos').select('email, telefone').eq('id', alunoId).maybeSingle();
@@ -313,6 +353,7 @@ export default function PortalAluno() {
       else {
         localStorage.setItem(SESSION_KEY, JSON.stringify(s));
         setScreen('portal');
+        setTimeout(() => registerAcesso(s), 0);
         toast.success(`Bem-vindo, ${data.nome.split(' ')[0]}!`);
       }
     } catch { toast.error('Erro ao fazer login. Tente novamente.'); }
@@ -329,6 +370,7 @@ export default function PortalAluno() {
       if (session) {
         localStorage.setItem(SESSION_KEY, JSON.stringify(session));
         setScreen('portal');
+        setTimeout(() => registerAcesso(session), 0);
         toast.success(`Senha definida! Bem-vindo, ${session.nome.split(' ')[0]}!`);
       }
     } catch { toast.error('Erro ao salvar senha'); }
@@ -336,6 +378,7 @@ export default function PortalAluno() {
   };
 
   const handleLogout = () => {
+    closeAcesso();
     localStorage.removeItem(SESSION_KEY);
     setSession(null);
     setScreen('login');
