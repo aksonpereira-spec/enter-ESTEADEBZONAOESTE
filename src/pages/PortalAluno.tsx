@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -10,11 +11,40 @@ import {
   MapPin, Heart, Download, AlertCircle, Star, TrendingUp,
   TrendingDown, Award, AlertTriangle, CalendarDays, Clock,
   Eye, EyeOff, Lock, Home, KeyRound, ShieldCheck,
-  DollarSign, MessageCircle, Send, CheckCircle, ExternalLink, CreditCard, ShoppingBag
+  DollarSign, MessageCircle, Send, CheckCircle, ExternalLink, CreditCard, ShoppingBag,
+  Copy, QrCode, ChevronDown, ChevronUp as ChevronUpIcon, Upload as UploadIcon
 } from 'lucide-react';
 
 const SESSION_KEY = 'portal_aluno_session';
 const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+/* ── PIX helpers ──────────────────────────────────────────── */
+function crc16pix(str: string): string {
+  let crc = 0xffff;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+function buildPixEMV(cnpj: string, name: string, city: string): string {
+  const c = cnpj.replace(/\D/g, '');
+  const f = (t: string, v: string) => `${t}${String(v.length).padStart(2, '0')}${v}`;
+  const mai = f('26', f('00', 'BR.GOV.BCB.PIX') + f('01', c));
+  const body = f('00','01') + mai + f('52','0000') + f('53','986') + f('58','BR') + f('59', name.substring(0,25)) + f('60', city.substring(0,15)) + f('62', f('05','***')) + '6304';
+  return body + crc16pix(body);
+}
+const PIX_CNPJ = '40800393000132';
+const PIX_DISPLAY = '40.800.393/0001-32';
+const PIX_EMV = buildPixEMV(PIX_CNPJ, 'ESTEADEB', 'BRASIL');
+
+const FAQ_PIX = [
+  { id: 1, q: 'Como realizar o pagamento?', a: 'Abra o aplicativo do seu banco, acesse a área PIX, escaneie o QR Code ao lado ou copie a chave CNPJ. Informe o valor da sua mensalidade e confirme o pagamento.' },
+  { id: 2, q: 'Como enviar o comprovante?', a: 'Após pagar, localize sua mensalidade na lista abaixo e clique em "Enviar Comprovante". Selecione o arquivo (PDF, JPG ou PNG) e confirme. O coordenador será notificado.' },
+  { id: 3, q: 'Em quanto tempo é confirmado?', a: 'Pagamentos via PIX são processados em instantes. A confirmação no sistema pelo coordenador pode levar até 1 dia útil. Acompanhe o status aqui no portal.' },
+  { id: 4, q: 'Qual é o vencimento da mensalidade?', a: 'O vencimento é no último dia útil de cada mês. Pagamentos realizados após essa data geram multa e juros. Em caso de dificuldades, entre em contato com o coordenador.' },
+  { id: 5, q: 'O QR Code tem valor definido?', a: 'Não. O QR Code gerado aqui é de valor aberto — você informa o valor no seu aplicativo bancário. Certifique-se de inserir o valor correto da mensalidade em aberto.' },
+];
 
 // ── Light theme tokens ─────────────────────────────────────────
 const T = {
@@ -165,6 +195,10 @@ export default function PortalAluno() {
   const [observacoes, setObservacoes] = useState<Observacao[]>([]);
   const [novaMensagem, setNovaMensagem] = useState('');
   const [sendingObs, setSendingObs] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(1);
+  const [uploadingMensId, setUploadingMensId] = useState<string | null>(null);
+  const pendingMensIdRef = useRef<string | null>(null);
+  const mensCompRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(SESSION_KEY);
@@ -368,8 +402,7 @@ export default function PortalAluno() {
     loadArquivos(session.alunoId);
   };
 
-  const handleSendObservacao = async () => {
-    if (!session || !novaMensagem.trim()) return;
+  const handleSendObservacao = async () => {    if (!session || !novaMensagem.trim()) return;
     setSendingObs(true);
     try {
       await supabase.from('observacoes_portal').insert({ aluno_id: session.alunoId, mensagem: novaMensagem.trim() });
@@ -378,6 +411,25 @@ export default function PortalAluno() {
       loadObservacoes(session.alunoId);
     } catch { toast.error('Erro ao enviar mensagem'); }
     finally { setSendingObs(false); }
+  };
+
+  const handleStudentComprovante = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const mensId = pendingMensIdRef.current;
+    if (!file || !session || !mensId) return;
+    if (file.size > 20 * 1024 * 1024) { toast.error('Arquivo muito grande (máx 20 MB)'); return; }
+    setUploadingMensId(mensId);
+    try {
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${session.alunoId}/${mensId}_${Date.now()}_${safe}`;
+      const { data: up, error } = await supabase.storage.from('comprovantes').upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('comprovantes').getPublicUrl(up.path);
+      await supabase.from('mensalidades').update({ comprovante_url: publicUrl, comprovante_path: up.path }).eq('id', mensId);
+      toast.success('Comprovante enviado! O coordenador será notificado.');
+      loadMensalidades(session.alunoId);
+    } catch { toast.error('Erro ao enviar comprovante'); }
+    finally { setUploadingMensId(null); pendingMensIdRef.current = null; if (mensCompRef.current) mensCompRef.current.value = ''; }
   };
 
   const setP = (k: keyof ProfileData, v: string) => setProfile(p => ({ ...p, [k]: v }));
@@ -958,58 +1010,146 @@ export default function PortalAluno() {
 
         {/* ══ TAB: FINANCEIRO ══════════════════════════════════ */}
         {activeTab === 'financeiro' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div className="portal-card" style={{ padding: '18px 20px', background: `linear-gradient(135deg, ${T.blueDark}, ${T.blueMid})`, border: 'none', boxShadow: '0 4px 16px rgba(30,58,138,0.2)' }}>
-              <h3 style={{ fontWeight: 800, fontSize: 16, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <DollarSign size={16} />Situação Financeira
-              </h3>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>Consulta somente leitura — para dúvidas contacte o coordenador</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* ── PIX Payment Section (clean-panel-faq layout) ── */}
+            <div className="portal-card" style={{ padding: '32px 28px', overflow: 'hidden' }}>
+              {/* hidden file input for comprovante */}
+              <input ref={mensCompRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleStudentComprovante} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+                {/* Top: badge + heading */}
+                <div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: `${T.blueFaint}`, border: `1px solid ${T.cardBorderBlue}`, borderRadius: 999, padding: '6px 14px', marginBottom: 16 }}>
+                    <span style={{ width: 20, height: 20, borderRadius: 6, background: T.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <QrCode size={11} style={{ color: '#fff' }} />
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: T.blue }}>Pagamento via PIX</span>
+                  </div>
+                  <h2 style={{ fontSize: 32, fontWeight: 700, color: T.text, lineHeight: 1.25, marginBottom: 8 }}>
+                    Pague sua mensalidade<br />
+                    <span style={{ color: T.blue }}>com PIX</span>
+                  </h2>
+                  <p style={{ fontSize: 14, color: T.textMuted, lineHeight: 1.6, maxWidth: 440 }}>
+                    Escaneie o QR Code ou copie a chave PIX abaixo. Após o pagamento, envie o comprovante diretamente pelo portal.
+                  </p>
+                </div>
+
+                {/* Two-column: QR + Key | FAQ */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  {/* Row 1: QR + key side by side on desktop */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
+                    {/* QR Code box */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 20, borderRadius: 20, border: `2px solid ${T.cardBorderBlue}`, background: T.white, minWidth: 180, boxShadow: '0 2px 12px rgba(37,99,235,0.08)' }}>
+                      <div style={{ padding: 10, borderRadius: 12, background: T.white, border: `1px solid ${T.cardBorder}` }}>
+                        <QRCodeSVG value={PIX_EMV} size={148} level="M" />
+                      </div>
+                      <p style={{ fontSize: 11, color: T.textMuted, textAlign: 'center', lineHeight: 1.4 }}>Escaneie com o app do seu banco</p>
+                    </div>
+
+                    {/* Key + copy */}
+                    <div style={{ flex: 1, minWidth: 200, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      <div>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Chave PIX (CNPJ)</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: T.inputBg, border: `1.5px solid ${T.cardBorderBlue}`, borderRadius: 12, padding: '10px 14px' }}>
+                          <span style={{ flex: 1, fontFamily: 'monospace', fontSize: 15, fontWeight: 700, color: T.text, letterSpacing: '0.04em' }}>{PIX_DISPLAY}</span>
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(PIX_DISPLAY); toast.success('Chave PIX copiada!'); }}
+                            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5, background: T.blue, color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                            <Copy size={12} />Copiar
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ padding: '12px 14px', borderRadius: 12, background: T.blueLight, border: `1px solid ${T.cardBorderBlue}` }}>
+                        <p style={{ fontSize: 12, color: T.blueDark, fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <AlertCircle size={13} />Instruções
+                        </p>
+                        <ol style={{ fontSize: 12, color: T.textSec, lineHeight: 1.8, paddingLeft: 16, margin: 0 }}>
+                          <li>Abra o app do seu banco e acesse o PIX</li>
+                          <li>Escaneie o QR Code ou cole a chave CNPJ</li>
+                          <li>Informe o valor da sua mensalidade</li>
+                          <li>Confirme e envie o comprovante abaixo</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FAQ Accordion */}
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: T.textSec, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Dúvidas frequentes</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {FAQ_PIX.map(item => {
+                        const isOpen = openFaq === item.id;
+                        return (
+                          <div key={item.id} style={{ borderRadius: 16, border: `1px solid ${isOpen ? T.cardBorderBlue : T.cardBorder}`, background: isOpen ? T.white : '#f9fafb', overflow: 'hidden', transition: 'all 0.2s', boxShadow: isOpen ? '0 2px 10px rgba(37,99,235,0.08)' : 'none' }}>
+                            <button
+                              onClick={() => setOpenFaq(isOpen ? null : item.id)}
+                              style={{ width: '100%', padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', gap: 12 }}>
+                              <span style={{ fontWeight: 600, fontSize: 14, color: isOpen ? T.blue : T.text }}>{item.q}</span>
+                              <span style={{ flexShrink: 0, width: 28, height: 28, borderRadius: '50%', background: T.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                                {isOpen
+                                  ? <ChevronUpIcon size={14} style={{ color: '#fff' }} />
+                                  : <ChevronDown size={14} style={{ color: '#fff' }} />}
+                              </span>
+                            </button>
+                            {isOpen && (
+                              <div style={{ padding: '0 18px 14px' }}>
+                                <div style={{ height: 1, background: `${T.blue}30`, marginBottom: 12, borderRadius: 2 }} />
+                                <p style={{ fontSize: 13, color: T.textSec, lineHeight: 1.65 }}>{item.a}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
+            {/* ── Stats ── */}
+            {mensalidades.length > 0 && (() => {
+              const pagos = mensalidades.filter(m => m.situacao === 'Pago');
+              const pendentes = mensalidades.filter(m => m.situacao !== 'Pago' && m.situacao !== 'Atrasado');
+              const atrasados = mensalidades.filter(m => m.situacao === 'Atrasado');
+              const totalPago = pagos.reduce((s, m) => s + m.valor, 0);
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  <div className="portal-card" style={{ padding: 14, textAlign: 'center' }}>
+                    <p style={{ fontSize: 20, fontWeight: 800, color: T.green }}>{pagos.length}</p>
+                    <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, marginTop: 2 }}>PAGAS</p>
+                    {totalPago > 0 && <p style={{ fontSize: 11, color: T.green, marginTop: 2, fontFamily: 'monospace' }}>R$ {totalPago.toFixed(2).replace('.',',')}</p>}
+                  </div>
+                  <div className="portal-card" style={{ padding: 14, textAlign: 'center' }}>
+                    <p style={{ fontSize: 20, fontWeight: 800, color: T.amber }}>{pendentes.length}</p>
+                    <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, marginTop: 2 }}>PENDENTES</p>
+                  </div>
+                  <div className="portal-card" style={{ padding: 14, textAlign: 'center' }}>
+                    <p style={{ fontSize: 20, fontWeight: 800, color: atrasados.length > 0 ? T.red : T.textFaint }}>{atrasados.length}</p>
+                    <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, marginTop: 2 }}>ATRASADAS</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Mensalidades list ── */}
             {mensalidades.length === 0 ? (
               <div className="portal-card" style={{ padding: 48, textAlign: 'center', color: T.textMuted }}>
                 <DollarSign size={40} style={{ margin: '0 auto 12px', opacity: 0.3, color: T.textMuted }} />
                 <p style={{ fontWeight: 600 }}>Nenhum lançamento financeiro</p>
-                <p style={{ fontSize: 13, marginTop: 4 }}>Os pagamentos serão registrados pela secretaria</p>
+                <p style={{ fontSize: 13, marginTop: 4 }}>Os pagamentos serão registrados pelo coordenador</p>
               </div>
             ) : (
-              <>
-                {(() => {
-                  const pagos = mensalidades.filter(m => m.situacao === 'Pago');
-                  const pendentes = mensalidades.filter(m => m.situacao !== 'Pago' && m.situacao !== 'Atrasado');
-                  const atrasados = mensalidades.filter(m => m.situacao === 'Atrasado');
-                  const totalPago = pagos.reduce((s, m) => s + m.valor, 0);
+              <div className="portal-card" style={{ overflow: 'hidden' }}>
+                {mensalidades.map((m, i) => {
+                  const [y, mo] = m.mes.split('-');
+                  const mesNome = `${MESES_PT[parseInt(mo)-1]} ${y}`;
+                  const isPago = m.situacao === 'Pago';
+                  const isAtrasado = m.situacao === 'Atrasado';
+                  const isUploading = uploadingMensId === m.id;
                   return (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                      <div className="portal-card" style={{ padding: 14, textAlign: 'center' }}>
-                        <p style={{ fontSize: 20, fontWeight: 800, color: T.green }}>{pagos.length}</p>
-                        <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, marginTop: 2 }}>PAGAS</p>
-                        {totalPago > 0 && <p style={{ fontSize: 11, color: T.green, marginTop: 2, fontFamily: 'monospace' }}>R$ {totalPago.toFixed(2).replace('.',',')}</p>}
-                      </div>
-                      <div className="portal-card" style={{ padding: 14, textAlign: 'center' }}>
-                        <p style={{ fontSize: 20, fontWeight: 800, color: T.amber }}>{pendentes.length}</p>
-                        <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, marginTop: 2 }}>PENDENTES</p>
-                      </div>
-                      <div className="portal-card" style={{ padding: 14, textAlign: 'center' }}>
-                        <p style={{ fontSize: 20, fontWeight: 800, color: atrasados.length > 0 ? T.red : T.textFaint }}>{atrasados.length}</p>
-                        <p style={{ fontSize: 10, color: T.textMuted, fontWeight: 700, marginTop: 2 }}>ATRASADAS</p>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div className="portal-card" style={{ overflow: 'hidden' }}>
-                  {mensalidades.map((m, i) => {
-                    const [y, mo] = m.mes.split('-');
-                    const mesNome = `${MESES_PT[parseInt(mo)-1]} ${y}`;
-                    const isPago = m.situacao === 'Pago';
-                    const isAtrasado = m.situacao === 'Atrasado';
-                    return (
-                      <div key={m.id} style={{
-                        display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px',
-                        borderBottom: i < mensalidades.length - 1 ? `1px solid ${T.cardBorder}` : 'none',
-                        transition: 'background 0.15s'
-                      }}
+                    <div key={m.id} style={{ borderBottom: i < mensalidades.length - 1 ? `1px solid ${T.cardBorder}` : 'none' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', transition: 'background 0.15s' }}
                         onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = T.inputBg; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = ''; }}>
                         <div style={{ width: 36, height: 36, borderRadius: 10, background: isPago ? T.greenBg : isAtrasado ? T.redBg : T.amberBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1022,30 +1162,37 @@ export default function PortalAluno() {
                             {m.obs && <span style={{ fontSize: 11, color: T.textMuted }}>• {m.obs}</span>}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                           {m.valor > 0 && (
                             <span style={{ fontSize: 14, fontWeight: 700, color: T.textSec, fontFamily: 'monospace' }}>R$ {m.valor.toFixed(2).replace('.',',')}</span>
                           )}
                           <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: isPago ? T.greenBg : isAtrasado ? T.redBg : T.amberBg, color: isPago ? T.green : isAtrasado ? T.red : T.amber, border: `1px solid ${isPago ? T.greenBorder : isAtrasado ? T.redBorder : T.amberBorder}`, minWidth: 68, textAlign: 'center' }}>
                             {m.situacao}
                           </span>
-                          {m.comprovante_url ? (
+                          {m.comprovante_url && (
                             <a href={m.comprovante_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: T.blue, fontWeight: 600 }}>
-                              <ExternalLink size={13} />Comprovante
+                              <ExternalLink size={13} />Ver
                             </a>
-                          ) : (
-                            <span style={{ fontSize: 11, color: T.textFaint }}>—</span>
+                          )}
+                          {!isPago && (
+                            <button
+                              disabled={isUploading}
+                              onClick={() => { pendingMensIdRef.current = m.id; mensCompRef.current?.click(); }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: T.blue, background: T.blueLight, border: `1px solid ${T.cardBorderBlue}`, borderRadius: 8, padding: '5px 10px', cursor: 'pointer', opacity: isUploading ? 0.6 : 1 }}>
+                              {isUploading ? <Spinner color={T.blue} /> : <UploadIcon size={12} />}
+                              {isUploading ? 'Enviando...' : m.comprovante_url ? 'Reenviar' : 'Comprovante'}
+                            </button>
                           )}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-                <p style={{ fontSize: 11, color: T.textFaint, textAlign: 'center', padding: '0 8px' }}>
-                  Os valores são gerenciados pela secretaria. Em caso de divergência, use o campo "Fale com o Coordenador" na página inicial.
-                </p>
-              </>
+                    </div>
+                  );
+                })}
+              </div>
             )}
+            <p style={{ fontSize: 11, color: T.textFaint, textAlign: 'center', padding: '0 8px' }}>
+              Os valores são gerenciados pelo coordenador. Em caso de divergência, use o campo "Fale com o Coordenador" na página inicial.
+            </p>
           </div>
         )}
 
