@@ -222,17 +222,24 @@ export default function PortalAluno() {
     acessoIdRef.current = null;
   }, []);
 
-  // Heartbeat every 60s while logged in
+  // Heartbeat every 60s while logged in — also creates record if missing
   useEffect(() => {
-    if (screen !== 'portal') return;
-    const tick = () => {
+    if (screen !== 'portal' || !session) return;
+    const tick = async () => {
       if (acessoIdRef.current) {
-        supabase.from('portal_acessos').update({ ultimo_heartbeat: new Date().toISOString(), online: true }).eq('id', acessoIdRef.current).then(() => {});
+        await supabase.from('portal_acessos')
+          .update({ ultimo_heartbeat: new Date().toISOString(), online: true })
+          .eq('id', acessoIdRef.current);
+      } else {
+        // Student was already logged in before monitoring was deployed — register now
+        await registerAcesso(session);
       }
     };
+    // Run immediately on mount so any pre-existing session is registered right away
+    tick();
     const id = setInterval(tick, 60000);
     return () => clearInterval(id);
-  }, [screen]);
+  }, [screen, session, registerAcesso]);
 
   // Close acesso on tab/window close
   useEffect(() => {
