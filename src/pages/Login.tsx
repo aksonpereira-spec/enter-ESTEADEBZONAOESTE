@@ -114,7 +114,7 @@ const Login = () => {
             Seja Bem-vindo!
           </p>
           <p className="text-white/40 text-sm leading-relaxed">
-            Escola Teológica das Assembleias de Deus no Brasil
+            Escola Teológica das Assembleias de Deus no Brasil — Portal Multi-Núcleo
           </p>
 
           <div className="mt-10 grid grid-cols-3 gap-4">
