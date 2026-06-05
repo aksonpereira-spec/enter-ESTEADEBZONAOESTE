@@ -1,40 +1,51 @@
-# Plano: Mensagens para o Coordenador
+# Monitoramento de Acessos do Portal do Aluno
 
-## O que muda
+## Objetivo
+Permitir ao coordenador ver em tempo real quem está logado no portal do aluno e o histórico de acessos recentes, para acompanhar se os alunos estão utilizando o sistema.
 
-1. **DB** — adicionar `resposta` e `respondida_em` à tabela `observacoes_portal`
-2. **PortalAluno.tsx** — renomear "Secretaria" → "Coordenador" e exibir respostas do coordenador
-3. **Novo componente** `src/components/tabs/MensagensTab.tsx` — painel do coordenador para ler e responder mensagens dos alunos
-4. **MainApp.tsx** — adicionar aba "Mensagens" ao painel admin
+## Abordagem
 
----
+### 1. Nova tabela: `portal_acessos`
+Registra cada sessão de acesso ao portal do aluno.
 
-## Migration SQL
 ```sql
-ALTER TABLE observacoes_portal
-  ADD COLUMN IF NOT EXISTS resposta TEXT DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS respondida_em TIMESTAMPTZ DEFAULT NULL;
+CREATE TABLE portal_acessos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  aluno_id UUID REFERENCES alunos(id) ON DELETE CASCADE,
+  nome TEXT NOT NULL,
+  matricula TEXT NOT NULL,
+  turma_nome TEXT DEFAULT '',
+  login_em TIMESTAMPTZ DEFAULT now(),
+  ultimo_heartbeat TIMESTAMPTZ DEFAULT now(),
+  logout_em TIMESTAMPTZ DEFAULT NULL,
+  online BOOLEAN DEFAULT TRUE,
+  dispositivo TEXT DEFAULT ''
+);
 ```
 
----
+Habilitar Realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE "portal_acessos";`
 
-## MensagensTab.tsx (novo)
-- Carrega todas as `observacoes_portal` com JOIN em `alunos (nome, matricula)`
-- Lista mensagens separadas em "Não respondidas" e "Respondidas"
-- Cada item mostra: nome do aluno, matrícula, mensagem, data, status
-- Botão "Responder" abre área inline de textarea + salvar → grava `resposta` + `respondida_em` + `lida = true`
-- Contador de não respondidas no cabeçalho
-- Filtro por nome/matrícula
+### 2. Modificações em `src/pages/PortalAluno.tsx`
+- **No `handleLogin`**: após login bem-sucedido → `INSERT` em `portal_acessos`, salvar `acessoId` no estado e no `localStorage`
+- **No `useEffect` de inicialização**: se restaurar sessão do `localStorage` → `INSERT` novo acesso (reentrada)
+- **Heartbeat**: `useInterval` de 60 segundos → `UPDATE ultimo_heartbeat = now()` enquanto logado
+- **No `handleLogout` e `useEffect` de unmount**: `UPDATE online = false, logout_em = now()`
 
----
+### 3. Novo arquivo: `src/components/tabs/MonitoramentoTab.tsx`
+Painel do coordenador com:
+- **Online agora**: alunos com `online = true` AND `ultimo_heartbeat > now() - 3 min` (pulsando verde)
+- **Histórico**: últimos acessos (24h / 7 dias) com data/hora de login e logout
+- **Stats**: total online, logins hoje, logins na semana
+- **Realtime**: subscription no canal `portal_acessos` para atualizar a lista sem refresh
+- **Filtros**: todos / online agora / por turma
 
-## PortalAluno.tsx (ajustes)
-- "Fale com a Secretaria" → "Fale com o Coordenador" (todos os textos visíveis)
-- Na lista de mensagens enviadas: se `resposta` não nulo, exibir card de resposta abaixo da mensagem original com label "Resposta do Coordenador"
+### 4. Modificações em `src/pages/MainApp.tsx`
+- Adicionar import `Activity` do lucide-react
+- Adicionar tab `acessos` com label "Monitoramento" no array `TABS`
+- Importar e renderizar `<MonitoramentoTab />`
 
----
-
-## MainApp.tsx
-- Importar `MensagensTab`
-- Adicionar `{ id: 'mensagens', label: 'Mensagens', icon: MessageCircle, desc: 'Mensagens dos alunos para o coordenador' }` à lista TABS
-- Adicionar `{activeTab === 'mensagens' && <MensagensTab />}` ao render
+## Arquivos modificados
+- `supabase/migrations/` — nova tabela + RLS + realtime
+- `src/pages/PortalAluno.tsx` — login/logout/heartbeat
+- `src/components/tabs/MonitoramentoTab.tsx` — novo componente
+- `src/pages/MainApp.tsx` — nova tab
