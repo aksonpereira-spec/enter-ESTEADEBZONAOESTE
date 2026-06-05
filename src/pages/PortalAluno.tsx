@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -167,6 +168,7 @@ function PasswordInput({ label, value, onChange, placeholder, name }: { label?: 
 /* ─────────────── Main Component ─────────────── */
 export default function PortalAluno() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [screen, setScreen] = useState<'login' | 'change-password' | 'portal'>('login');
   const [session, setSession] = useState<AlunoSession | null>(null);
   const [activeTab, setActiveTab] = useState<'inicio' | 'notas' | 'calendario' | 'financeiro' | 'ficha' | 'documentos'>('inicio');
@@ -549,22 +551,22 @@ export default function PortalAluno() {
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontFamily: 'monospace' }}>{session.matricula}</p>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {session.turmaNome && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 6 : 10 }}>
+            {session.turmaNome && !isMobile && (
               <span style={{ fontSize: 11, background: 'rgba(255,255,255,0.15)', color: '#ffffff', padding: '3px 10px', borderRadius: 20, border: '1px solid rgba(255,255,255,0.25)', fontWeight: 600 }}>
                 {session.turmaNome}
               </span>
             )}
             <button onClick={() => navigate('/loja')}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#ffffff', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', padding: '5px 12px', borderRadius: 8, transition: 'all 0.15s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 5, fontSize: 12, fontWeight: 700, color: '#ffffff', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', padding: isMobile ? '7px 9px' : '5px 12px', borderRadius: 8, transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.25)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.15)'; }}>
-              <ShoppingBag size={14} />Loja
+              <ShoppingBag size={14} />{!isMobile && <span style={{ marginLeft: 5 }}>Loja</span>}
             </button>
-            <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(255,255,255,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 10px', borderRadius: 8, transition: 'all 0.15s' }}
+            <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0 : 5, fontSize: 12, color: 'rgba(255,255,255,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: isMobile ? '7px 8px' : '5px 10px', borderRadius: 8, transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#fca5a5'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.6)'; }}>
-              <LogOut size={14} />Sair
+              <LogOut size={14} />{!isMobile && <span style={{ marginLeft: 5 }}>Sair</span>}
             </button>
           </div>
         </div>
@@ -572,7 +574,7 @@ export default function PortalAluno() {
 
       {/* ── Tab Navigation ── */}
       <div style={{ position: 'sticky', top: 56, zIndex: 20, background: T.white, borderBottom: `1px solid ${T.cardBorder}`, boxShadow: '0 1px 4px rgba(30,60,140,0.06)' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 12px', display: 'flex', overflowX: 'auto', gap: 4, paddingBottom: 6, paddingTop: 6 }}>
+        <div className="portal-tab-bar" style={{ maxWidth: 960, margin: '0 auto', padding: '0 12px', display: 'flex', overflowX: 'auto', gap: 4, paddingBottom: 6, paddingTop: 6 }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)} className={`portal-tab ${activeTab === t.id ? 'active' : ''}`}>
               <t.icon size={14} />{t.label}
@@ -588,22 +590,22 @@ export default function PortalAluno() {
         const pendentes = mensalidades.filter(m => m.situacao === 'Pendente');
         if (atrasados.length > 0) {
           return (
-            <div style={{ background: '#7f1d1d', borderBottom: '3px solid #dc2626', padding: '12px 16px' }}>
-              <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }}>
-                  <AlertTriangle size={18} style={{ color: '#ffffff' }} />
+            <div style={{ background: '#7f1d1d', borderBottom: '3px solid #dc2626', padding: isMobile ? '10px 12px' : '12px 16px' }}>
+              <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }}>
+                  <AlertTriangle size={16} style={{ color: '#ffffff' }} />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 800, fontSize: 14, color: '#fca5a5', lineHeight: 1.2 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 800, fontSize: isMobile ? 12 : 14, color: '#fca5a5', lineHeight: 1.3 }}>
                     ATENÇÃO: {atrasados.length} MENSALIDADE{atrasados.length > 1 ? 'S' : ''} EM ATRASO!
                   </p>
-                  <p style={{ fontSize: 12, color: '#fecaca', marginTop: 2, lineHeight: 1.4 }}>
-                    Regularize seu pagamento imediatamente. Entre em contato com o coordenador ou compareça presencialmente.
-                  </p>
+                  {!isMobile && <p style={{ fontSize: 12, color: '#fecaca', marginTop: 2, lineHeight: 1.4 }}>
+                    Regularize seu pagamento imediatamente. Entre em contato com o coordenador.
+                  </p>}
                 </div>
                 <button onClick={() => setActiveTab('financeiro')}
-                  style={{ flexShrink: 0, background: '#dc2626', color: '#ffffff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  Ver Detalhes
+                  style={{ flexShrink: 0, background: '#dc2626', color: '#ffffff', border: 'none', borderRadius: 8, padding: isMobile ? '5px 10px' : '7px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Ver
                 </button>
               </div>
             </div>
@@ -611,22 +613,20 @@ export default function PortalAluno() {
         }
         if (pendentes.length > 0) {
           return (
-            <div style={{ background: '#78350f', borderBottom: '3px solid #d97706', padding: '10px 16px' }}>
-              <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Clock size={16} style={{ color: '#ffffff' }} />
+            <div style={{ background: '#78350f', borderBottom: '3px solid #d97706', padding: isMobile ? '8px 12px' : '10px 16px' }}>
+              <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Clock size={14} style={{ color: '#ffffff' }} />
                 </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 700, fontSize: 13, color: '#fde68a', lineHeight: 1.2 }}>
-                    Atenção: {pendentes.length} mensalidade{pendentes.length > 1 ? 's' : ''} pendente{pendentes.length > 1 ? 's' : ''}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontWeight: 700, fontSize: isMobile ? 12 : 13, color: '#fde68a', lineHeight: 1.2 }}>
+                    {pendentes.length} mensalidade{pendentes.length > 1 ? 's' : ''} pendente{pendentes.length > 1 ? 's' : ''}
                   </p>
-                  <p style={{ fontSize: 12, color: '#fef3c7', marginTop: 1 }}>
-                    Regularize seu pagamento para evitar atrasos.
-                  </p>
+                  {!isMobile && <p style={{ fontSize: 12, color: '#fef3c7', marginTop: 1 }}>Regularize seu pagamento para evitar atrasos.</p>}
                 </div>
                 <button onClick={() => setActiveTab('financeiro')}
-                  style={{ flexShrink: 0, background: '#d97706', color: '#ffffff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  Ver Detalhes
+                  style={{ flexShrink: 0, background: '#d97706', color: '#ffffff', border: 'none', borderRadius: 8, padding: isMobile ? '4px 8px' : '6px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Ver
                 </button>
               </div>
             </div>
@@ -635,13 +635,13 @@ export default function PortalAluno() {
         return null;
       })()}
 
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
+      <main style={{ maxWidth: 960, margin: '0 auto', padding: isMobile ? '16px 12px' : '24px 16px' }}>
 
         {/* ══ TAB: INÍCIO ══════════════════════════════════════ */}
         {activeTab === 'inicio' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {/* Hero */}
-            <div className="portal-card" style={{ background: `linear-gradient(135deg, ${T.blueDark} 0%, #1e40af 60%, #2563eb 100%)`, border: 'none', padding: 28, position: 'relative', overflow: 'hidden', boxShadow: '0 4px 20px rgba(30,58,138,0.25)' }}>
+            <div className="portal-card portal-hero" style={{ background: `linear-gradient(135deg, ${T.blueDark} 0%, #1e40af 60%, #2563eb 100%)`, border: 'none', padding: isMobile ? '20px 16px' : 28, position: 'relative', overflow: 'hidden', boxShadow: '0 4px 20px rgba(30,58,138,0.25)' }}>
               <div style={{ position: 'absolute', top: -40, right: -40, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
               <div style={{ position: 'absolute', bottom: -30, right: 60, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 600, marginBottom: 6 }}>Bem-vindo de volta,</p>
@@ -659,19 +659,19 @@ export default function PortalAluno() {
             </div>
 
             {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-              <div className="portal-card" style={{ padding: 16, textAlign: 'center' }}>
-                <p style={{ fontSize: 24, fontWeight: 800, color: T.blue, marginBottom: 4 }}>{notas.length}</p>
+            <div className="portal-stats-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isMobile ? 8 : 12 }}>
+              <div className="portal-card" style={{ padding: isMobile ? 12 : 16, textAlign: 'center' }}>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: T.blue, marginBottom: 4 }}>{notas.length}</p>
                 <p style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>DISCIPLINAS</p>
               </div>
-              <div className="portal-card" style={{ padding: 16, textAlign: 'center' }}>
-                <p style={{ fontSize: 24, fontWeight: 800, color: mediaGeral !== null ? (mediaGeral >= 7 ? T.green : mediaGeral >= 5 ? T.amber : T.red) : T.textFaint, marginBottom: 4 }}>
+              <div className="portal-card" style={{ padding: isMobile ? 12 : 16, textAlign: 'center' }}>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: mediaGeral !== null ? (mediaGeral >= 7 ? T.green : mediaGeral >= 5 ? T.amber : T.red) : T.textFaint, marginBottom: 4 }}>
                   {mediaGeral !== null ? mediaGeral.toFixed(1) : '—'}
                 </p>
                 <p style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>MÉDIA GERAL</p>
               </div>
-              <div className="portal-card" style={{ padding: 16, textAlign: 'center' }}>
-                <p style={{ fontSize: 24, fontWeight: 800, color: T.blue, marginBottom: 4 }}>{arquivos.length}</p>
+              <div className="portal-card" style={{ padding: isMobile ? 12 : 16, textAlign: 'center' }}>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: T.blue, marginBottom: 4 }}>{arquivos.length}</p>
                 <p style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>DOCUMENTOS</p>
               </div>
             </div>
@@ -747,7 +747,7 @@ export default function PortalAluno() {
             })()}
 
             {/* Navigation cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+            <div className="portal-nav-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: isMobile ? 10 : 12 }}>
               {[
                 { id: 'notas' as const, icon: BookOpen, label: 'Minhas Notas', desc: `${notas.length} disciplinas`, color: T.blue, bg: T.blueLight },
                 { id: 'calendario' as const, icon: CalendarDays, label: 'Calendário', desc: nextEvento ? 'Próxima aula agendada' : 'Ver agenda', color: '#7c3aed', bg: '#f5f3ff' },
@@ -1038,7 +1038,7 @@ export default function PortalAluno() {
                 {/* Two-column: QR + Key | FAQ */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                   {/* Row 1: QR + key side by side on desktop */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
+                  <div className="portal-pix-cols" style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
                     {/* QR Code box */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: 20, borderRadius: 20, border: `2px solid ${T.cardBorderBlue}`, background: T.white, minWidth: 180, boxShadow: '0 2px 12px rgba(37,99,235,0.08)' }}>
                       <div style={{ padding: 10, borderRadius: 12, background: T.white, border: `1px solid ${T.cardBorder}` }}>
@@ -1162,7 +1162,7 @@ export default function PortalAluno() {
                             {m.obs && <span style={{ fontSize: 11, color: T.textMuted }}>• {m.obs}</span>}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <div className="portal-mens-actions" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                           {m.valor > 0 && (
                             <span style={{ fontSize: 14, fontWeight: 700, color: T.textSec, fontFamily: 'monospace' }}>R$ {m.valor.toFixed(2).replace('.',',')}</span>
                           )}
@@ -1200,7 +1200,7 @@ export default function PortalAluno() {
         {activeTab === 'ficha' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Section title="Dados Escolares" icon={<Hash size={15} style={{ color: T.blue }} />}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div className="portal-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
                 <ReadField label="Matrícula" value={session.matricula} mono />
                 <ReadField label="Turma" value={session.turmaNome || '—'} />
                 <ReadField label="Nome" value={session.nome} />
@@ -1208,7 +1208,7 @@ export default function PortalAluno() {
             </Section>
 
             <Section title="Dados Pessoais" icon={<User size={15} style={{ color: T.blue }} />}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div className="portal-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <PortalInput label="Nome Completo" value={profile.nome_completo} onChange={v => setP('nome_completo', v)} placeholder="Nome completo" />
                 </div>
@@ -1245,7 +1245,7 @@ export default function PortalAluno() {
             </Section>
 
             <Section title="Contato" icon={<Phone size={15} style={{ color: T.blue }} />}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div className="portal-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
                 <PortalInput label="Celular Principal" value={profile.celular1} onChange={v => setP('celular1', v)} placeholder="(00) 00000-0000" />
                 <PortalInput label="Celular Secundário" value={profile.celular2} onChange={v => setP('celular2', v)} placeholder="(00) 00000-0000" />
                 <PortalInput label="E-mail" type="email" value={alunoEmail} onChange={setAlunoEmail} placeholder="email@exemplo.com" />
@@ -1254,7 +1254,7 @@ export default function PortalAluno() {
             </Section>
 
             <Section title="Endereço" icon={<MapPin size={15} style={{ color: T.blue }} />}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div className="portal-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <PortalInput label="Endereço" value={profile.endereco} onChange={v => setP('endereco', v)} placeholder="Rua, número, complemento" />
                 </div>
@@ -1266,7 +1266,7 @@ export default function PortalAluno() {
             </Section>
 
             <Section title="Igreja" icon={<Building2 size={15} style={{ color: T.blue }} />}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div className="portal-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
                 <PortalInput label="Congregação" value={profile.congregacao} onChange={v => setP('congregacao', v)} placeholder="Nome da congregação" />
                 <PortalInput label="Igreja Membro" value={profile.igreja_membro} onChange={v => setP('igreja_membro', v)} placeholder="Igreja" />
                 <PortalInput label="Função na Igreja" value={profile.funcao_igreja} onChange={v => setP('funcao_igreja', v)} placeholder="Pastor, Diácono..." />
@@ -1276,7 +1276,7 @@ export default function PortalAluno() {
             </Section>
 
             <Section title="Família e Formação" icon={<Heart size={15} style={{ color: T.blue }} />}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+              <div className="portal-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
                 <PortalInput label="Nome do Pai" value={profile.nome_pai} onChange={v => setP('nome_pai', v)} placeholder="Nome do pai" />
                 <PortalInput label="Nome da Mãe" value={profile.nome_mae} onChange={v => setP('nome_mae', v)} placeholder="Nome da mãe" />
                 <div>

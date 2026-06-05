@@ -1,0 +1,27 @@
+{
+  "name": "Portal ESTEADEB",
+  "short_name": "ESTEADEB",
+  "description": "Portal do Aluno e Sistema de Gestão ESTEADEB",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f0f4fc",
+  "theme_color": "#1e3a8a",
+  "lang": "pt-BR",
+  "categories": ["education"],
+  "icons": [
+    {
+      "src": "/logo-esteadeb.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-esteadeb.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -308,3 +308,63 @@
     border: 1px solid rgba(37,99,235,0.2);
   }
 }
+
+/* ─── Global Mobile Reset ──────────────────────────────────────── */
+@layer utilities {
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .safe-top    { padding-top:    env(safe-area-inset-top, 0px); }
+}
+
+/* ─── Mobile Responsive Overrides ─────────────────────────────── */
+@media (max-width: 640px) {
+  /* Admin panel table overflow */
+  table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Portal tab bar: hide scrollbar on mobile */
+  .portal-tab-bar::-webkit-scrollbar { display: none; }
+  .portal-tab-bar { scrollbar-width: none; -ms-overflow-style: none; }
+
+  /* Portal responsive utilities */
+  .portal-bg { background: #f0f4fc; }
+
+  /* Three-col stats → ensure at least readable on small screens */
+  .portal-stats-3 { grid-template-columns: repeat(3, 1fr) !important; }
+  .portal-stats-3 > div { padding: 10px 6px !important; }
+  .portal-stats-3 p:first-child { font-size: 18px !important; }
+
+  /* Nav cards → 2 columns always */
+  .portal-nav-cards { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* PIX section: force stack */
+  .portal-pix-cols { flex-direction: column !important; }
+
+  /* Mensalidades row on mobile: wrap actions */
+  .portal-mens-actions { flex-wrap: wrap !important; gap: 6px !important; justify-content: flex-start !important; }
+
+  /* Profile form: single column */
+  .portal-form-grid { grid-template-columns: 1fr !important; }
+
+  /* Portal card padding reduction */
+  .portal-card { border-radius: 1rem !important; }
+
+  /* Hero card padding */
+  .portal-hero { padding: 20px 16px !important; }
+
+  /* Tab font size on mobile */
+  .portal-tab { font-size: 11px !important; padding: 0.4rem 0.5rem !important; gap: 0.25rem !important; }
+
+  /* FAQ heading */
+  .portal-pix-heading { font-size: 24px !important; }
+
+  /* Admin cards */
+  .app-card { padding: 12px !important; }
+
+  /* Buttons in tables */
+  .table-action-btns { flex-wrap: wrap; gap: 4px; }
+}
+
+@media (max-width: 480px) {
+  /* Very small phones */
+  .portal-stats-3 p:first-child { font-size: 16px !important; }
+  .portal-tab { font-size: 10px !important; }
+}
