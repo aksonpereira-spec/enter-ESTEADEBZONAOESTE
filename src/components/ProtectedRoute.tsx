@@ -23,9 +23,12 @@ export const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) 
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  if (requiredRole && userRole !== requiredRole) {
-    if (userRole === 'admin') return <Navigate to="/" replace />;
-    if (userRole === 'student') return <Navigate to="/portal" replace />;
+  // Director has same access as admin
+  const effectiveRole = userRole === 'director' ? 'admin' : userRole;
+
+  if (requiredRole && effectiveRole !== requiredRole) {
+    if (effectiveRole === 'admin') return <Navigate to="/" replace />;
+    if (effectiveRole === 'student') return <Navigate to="/portal" replace />;
     return <Navigate to="/login" replace />;
   }
 

@@ -3343,6 +3343,33 @@ export type Database = {
         }
         Relationships: []
       }
+      diretores: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          nome: string
+          senha: string
+          senha_temporaria: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          nome?: string
+          senha?: string
+          senha_temporaria?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          nome?: string
+          senha?: string
+          senha_temporaria?: boolean | null
+        }
+        Relationships: []
+      }
       disciplinas_turma: {
         Row: {
           created_at: string | null

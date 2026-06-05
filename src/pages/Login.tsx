@@ -1,27 +1,33 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Lock, User, LogIn, Shield, BookOpen, GraduationCap, UserPlus, Eye, EyeOff, Hash, ChevronLeft, ExternalLink } from 'lucide-react';
+import { Lock, User, LogIn, Shield, BookOpen, GraduationCap, UserPlus, Eye, EyeOff, Hash, ChevronLeft, ExternalLink, Crown } from 'lucide-react';
 import { toast } from 'sonner';
 
-type Mode = 'select' | 'admin' | 'student-login' | 'student-signup';
+type Mode = 'select' | 'admin' | 'director' | 'director-change-pwd' | 'student-login' | 'student-signup';
 
 const Login = () => {
-  const { isAuthenticated, userRole, login, loginStudent, signUpStudent, isLoading } = useAuth();
+  const { isAuthenticated, userRole, login, loginDirector, changeDirectorPassword, loginStudent, signUpStudent, isLoading } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>('select');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
+  const [directorEmail, setDirectorEmail] = useState('');
+  const [directorPwd, setDirectorPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [newPwdConfirm, setNewPwdConfirm] = useState('');
   const [studentPwd, setStudentPwd] = useState('');
   const [studentPwdConfirm, setStudentPwdConfirm] = useState('');
   const [nome, setNome] = useState('');
   const [matricula, setMatricula] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isLoading && isAuthenticated) {
-    return <Navigate to={userRole === 'admin' ? '/' : '/portal'} replace />;
+    const isAdminLike = userRole === 'admin' || userRole === 'director';
+    return <Navigate to={isAdminLike ? '/' : '/portal'} replace />;
   }
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -30,6 +36,42 @@ const Login = () => {
     await new Promise(r => setTimeout(r, 300));
     const ok = login(username, password);
     if (!ok) { toast.error('Credenciais inválidas'); setIsSubmitting(false); }
+  };
+
+  const handleDirectorLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directorEmail.toLowerCase().trim().endsWith('@esteadeb.org.br')) {
+      toast.error('Use seu e-mail @esteadeb.org.br');
+      return;
+    }
+    setIsSubmitting(true);
+    const result = await loginDirector(directorEmail, directorPwd);
+    if (result.error) {
+      toast.error(result.error);
+      setIsSubmitting(false);
+    } else if (result.needsPasswordChange) {
+      setMode('director-change-pwd');
+      setIsSubmitting(false);
+      toast.info('Bem-vindo! Defina sua senha permanente para continuar.');
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleDirectorChangePwd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPwd.length < 6) { toast.error('A senha deve ter pelo menos 6 caracteres'); return; }
+    if (newPwd !== newPwdConfirm) { toast.error('As senhas não coincidem'); return; }
+    if (newPwd === '1234') { toast.error('Você não pode usar a senha padrão 1234'); return; }
+    setIsSubmitting(true);
+    const { error } = await changeDirectorPassword(directorEmail, newPwd);
+    if (error) {
+      toast.error(error);
+      setIsSubmitting(false);
+    } else {
+      toast.success('Senha definida com sucesso! Bem-vindo ao sistema!');
+      navigate('/');
+    }
   };
 
   const handleStudentLogin = async (e: React.FormEvent) => {
@@ -49,7 +91,7 @@ const Login = () => {
     if (error) { toast.error(error); setIsSubmitting(false); }
     else {
       toast.success('Conta criada com sucesso! Abrindo seu portal...');
-      navigate('/portal'); // redirect explícito após signup (auto-confirm já autentica)
+      navigate('/portal');
     }
   };
 
@@ -104,16 +146,16 @@ const Login = () => {
 
             {/* ── SELECT MODE ─────────────────────────────────── */}
             {mode === 'select' && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="text-center mb-6">
                   <h2 className="text-2xl font-bold text-white">Acesso ao Sistema</h2>
                   <p className="text-white/40 text-sm mt-1">Selecione o tipo de acesso</p>
                 </div>
-                <button
-                  onClick={() => setMode('admin')}
+
+                {/* Coordenador */}
+                <button onClick={() => setMode('admin')}
                   className="w-full rounded-2xl p-5 text-left transition-all hover:scale-[1.02] group"
-                  style={{ background: 'hsl(0 0% 100% / 0.08)', border: '1px solid hsl(0 0% 100% / 0.15)' }}
-                >
+                  style={{ background: 'hsl(0 0% 100% / 0.08)', border: '1px solid hsl(0 0% 100% / 0.15)' }}>
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, hsl(221 83% 53%), hsl(250 80% 58%))' }}>
                       <Shield className="w-6 h-6 text-white" />
@@ -126,11 +168,26 @@ const Login = () => {
                   </div>
                 </button>
 
-                <button
-                  onClick={() => navigate('/portal-aluno')}
+                {/* Diretor */}
+                <button onClick={() => setMode('director')}
                   className="w-full rounded-2xl p-5 text-left transition-all hover:scale-[1.02] group"
-                  style={{ background: 'hsl(0 0% 100% / 0.08)', border: '1px solid hsl(0 0% 100% / 0.15)' }}
-                >
+                  style={{ background: 'hsl(0 0% 100% / 0.08)', border: '1px solid hsl(0 0% 100% / 0.15)' }}>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, hsl(38 92% 50%), hsl(32 95% 44%))' }}>
+                      <Crown className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold text-sm">Acesso do Diretor</p>
+                      <p className="text-white/40 text-xs mt-0.5">Entre com seu email @esteadeb.org.br</p>
+                    </div>
+                    <LogIn className="w-4 h-4 text-white/30 ml-auto group-hover:text-white/60 transition-colors" />
+                  </div>
+                </button>
+
+                {/* Portal do Aluno */}
+                <button onClick={() => navigate('/portal-aluno')}
+                  className="w-full rounded-2xl p-5 text-left transition-all hover:scale-[1.02] group"
+                  style={{ background: 'hsl(0 0% 100% / 0.08)', border: '1px solid hsl(0 0% 100% / 0.15)' }}>
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, hsl(160 60% 45%), hsl(180 60% 40%))' }}>
                       <GraduationCap className="w-6 h-6 text-white" />
@@ -174,6 +231,85 @@ const Login = () => {
                   </div>
                   <button type="submit" disabled={isSubmitting} className="w-full h-11 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm text-white transition-all mt-2" style={{ background: 'linear-gradient(135deg, hsl(221 83% 53%), hsl(250 80% 58%))', boxShadow: '0 4px 20px hsl(221 83% 53% / 0.4)' }}>
                     {isSubmitting ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <><LogIn className="w-4 h-4" />Entrar no Sistema</>}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {/* ── DIRECTOR LOGIN ──────────────────────────────── */}
+            {mode === 'director' && (
+              <>
+                <div className="flex items-center gap-3 mb-6">
+                  <button onClick={() => setMode('select')} className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors">
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Acesso do Diretor</h2>
+                    <p className="text-white/40 text-xs mt-0.5">Entre com seu e-mail institucional</p>
+                  </div>
+                </div>
+                <form onSubmit={handleDirectorLogin} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5">E-mail Institucional</label>
+                    <div className="relative">
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                      <input type="email" value={directorEmail} onChange={e => setDirectorEmail(e.target.value)}
+                        placeholder="nome@esteadeb.org.br" required className={inputClass} style={inputStyle} />
+                    </div>
+                    <p className="text-white/25 text-xs mt-1.5 ml-1">Somente emails @esteadeb.org.br são aceitos</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5">Senha</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                      <input type={showPwd ? 'text' : 'password'} value={directorPwd} onChange={e => setDirectorPwd(e.target.value)}
+                        placeholder="Primeiro acesso: use 1234" required className={`${inputClass} pr-10`} style={inputStyle} />
+                      <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+                        {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <button type="submit" disabled={isSubmitting} className="w-full h-11 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm text-white transition-all mt-2"
+                    style={{ background: 'linear-gradient(135deg, hsl(38 92% 50%), hsl(32 95% 44%))', boxShadow: '0 4px 20px hsl(38 92% 50% / 0.4)' }}>
+                    {isSubmitting ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <><LogIn className="w-4 h-4" />Entrar como Diretor</>}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {/* ── DIRECTOR CHANGE PASSWORD ─────────────────────── */}
+            {mode === 'director-change-pwd' && (
+              <>
+                <div className="text-center mb-6">
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: 'linear-gradient(135deg, hsl(38 92% 50%), hsl(32 95% 44%))' }}>
+                    <Crown className="w-7 h-7 text-white" />
+                  </div>
+                  <h2 className="text-xl font-bold text-white">Defina sua Senha</h2>
+                  <p className="text-white/40 text-xs mt-1.5">Por segurança, crie uma senha permanente para continuar</p>
+                </div>
+                <form onSubmit={handleDirectorChangePwd} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5">Nova Senha</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                      <input type={showNewPwd ? 'text' : 'password'} value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                        placeholder="Mínimo 6 caracteres" required className={`${inputClass} pr-10`} style={inputStyle} />
+                      <button type="button" onClick={() => setShowNewPwd(!showNewPwd)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+                        {showNewPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5">Confirmar Senha</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                      <input type={showNewPwd ? 'text' : 'password'} value={newPwdConfirm} onChange={e => setNewPwdConfirm(e.target.value)}
+                        placeholder="Repita a nova senha" required className={inputClass} style={inputStyle} />
+                    </div>
+                  </div>
+                  <button type="submit" disabled={isSubmitting} className="w-full h-11 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm text-white transition-all mt-2"
+                    style={{ background: 'linear-gradient(135deg, hsl(38 92% 50%), hsl(32 95% 44%))' }}>
+                    {isSubmitting ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <><Shield className="w-4 h-4" />Salvar e Entrar</>}
                   </button>
                 </form>
               </>

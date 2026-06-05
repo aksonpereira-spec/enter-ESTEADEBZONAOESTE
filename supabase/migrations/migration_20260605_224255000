@@ -1,0 +1,14 @@
+
+CREATE TABLE IF NOT EXISTS diretores (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  nome TEXT NOT NULL DEFAULT '',
+  senha TEXT NOT NULL DEFAULT '1234',
+  senha_temporaria BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE diretores ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow all for diretores" ON diretores
+  FOR ALL USING (true) WITH CHECK (true);

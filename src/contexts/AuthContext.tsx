@@ -2,17 +2,19 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 
-export type UserRole = 'admin' | 'student';
+export type UserRole = 'admin' | 'student' | 'director';
 
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   userRole: UserRole | null;
-  studentId: string | null;     // aluno.id
+  studentId: string | null;
   studentName: string | null;
-  studentAuthId: string | null; // auth.users.id
+  studentAuthId: string | null;
   session: Session | null;
   login: (username: string, password: string) => boolean;
+  loginDirector: (email: string, password: string) => Promise<{ needsPasswordChange?: boolean; error?: string }>;
+  changeDirectorPassword: (email: string, newPassword: string) => Promise<{ error?: string }>;
   loginStudent: (email: string, password: string) => Promise<{ error?: string }>;
   signUpStudent: (email: string, password: string, matricula?: string, nome?: string) => Promise<{ error?: string }>;
   logout: () => void;
@@ -64,6 +66,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
+    // Check director auth from localStorage
+    const directorAuth = safeStorage.get('esteadeb_director_auth');
+    if (directorAuth === 'true') {
+      setIsAuthenticated(true);
+      setUserRole('director');
+      setIsLoading(false);
+      return;
+    }
+
     // Setup Supabase auth listener for students
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
@@ -72,7 +83,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUserRole('student');
         setStudentAuthId(sess.user.id);
         setTimeout(() => resolveStudent(sess.user.id), 0);
-      } else if (safeStorage.get('esteadeb_auth') !== 'true') {
+      } else if (
+        safeStorage.get('esteadeb_auth') !== 'true' &&
+        safeStorage.get('esteadeb_director_auth') !== 'true'
+      ) {
         setIsAuthenticated(false);
         setUserRole(null);
         setStudentId(null);
@@ -107,6 +121,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return false;
   };
 
+  const loginDirector = async (email: string, password: string): Promise<{ needsPasswordChange?: boolean; error?: string }> => {
+    const emailLower = email.toLowerCase().trim();
+    if (!emailLower.endsWith('@esteadeb.org.br')) {
+      return { error: 'Use seu e-mail institucional @esteadeb.org.br' };
+    }
+
+    const { data } = await supabase
+      .from('diretores')
+      .select('*')
+      .eq('email', emailLower)
+      .maybeSingle();
+
+    if (!data) {
+      // First access: must use default password 1234
+      if (password !== '1234') return { error: 'Primeiro acesso: use a senha padrão 1234' };
+      const { error: insErr } = await supabase
+        .from('diretores')
+        .insert({ email: emailLower, senha: '1234', senha_temporaria: true });
+      if (insErr) return { error: 'Erro ao registrar acesso' };
+      safeStorage.set('esteadeb_director_auth', 'true');
+      safeStorage.set('esteadeb_director_email', emailLower);
+      setIsAuthenticated(true);
+      setUserRole('director');
+      return { needsPasswordChange: true };
+    }
+
+    if (data.senha !== password) return { error: 'Senha incorreta' };
+
+    safeStorage.set('esteadeb_director_auth', 'true');
+    safeStorage.set('esteadeb_director_email', emailLower);
+    setIsAuthenticated(true);
+    setUserRole('director');
+
+    if (data.senha_temporaria) return { needsPasswordChange: true };
+    return {};
+  };
+
+  const changeDirectorPassword = async (email: string, newPassword: string): Promise<{ error?: string }> => {
+    const { error } = await supabase
+      .from('diretores')
+      .update({ senha: newPassword, senha_temporaria: false })
+      .eq('email', email.toLowerCase().trim());
+    if (error) return { error: 'Erro ao salvar senha' };
+    return {};
+  };
+
   const loginStudent = async (email: string, password: string): Promise<{ error?: string }> => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
@@ -128,13 +188,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const userId = data.user.id;
     let alunoId: string | null = null;
 
-    // Set auth state immediately (auto-confirm already signed in)
     setIsAuthenticated(true);
     setUserRole('student');
     setStudentAuthId(userId);
     if (data.session) setSession(data.session);
 
-    // Try to link to existing aluno by matricula
     if (matricula?.trim()) {
       const { data: aluno } = await supabase.from('alunos').select('id, nome').eq('matricula', matricula.trim()).maybeSingle();
       if (aluno) {
@@ -144,14 +202,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    // If no aluno found by matricula, create a new aluno entry automatically
     if (!alunoId && nome?.trim()) {
       const { data: newAluno } = await supabase.from('alunos').insert({
-        nome: nome.trim(),
-        ativo: true,
-        tipo_bolsa: '',
-        telefone: '',
-        email: email,
+        nome: nome.trim(), ativo: true, tipo_bolsa: '', telefone: '', email: email,
       }).select().maybeSingle();
       if (newAluno) {
         alunoId = newAluno.id;
@@ -162,17 +215,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setStudentName(nome.trim());
     }
 
-    // Create student profile (upsert to handle duplicate signups)
     const { error: insErr } = await supabase.from('student_profiles').upsert({
-      auth_user_id: userId,
-      aluno_id: alunoId,
-      nome_completo: nome?.trim() || '',
-      email_contato: email,
+      auth_user_id: userId, aluno_id: alunoId,
+      nome_completo: nome?.trim() || '', email_contato: email,
     }, { onConflict: 'auth_user_id' });
-
-    if (insErr) {
-      console.error('Profile insert error:', insErr);
-    }
+    if (insErr) console.error('Profile insert error:', insErr);
 
     return {};
   };
@@ -180,6 +227,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     if (userRole === 'admin') {
       safeStorage.remove('esteadeb_auth');
+    } else if (userRole === 'director') {
+      safeStorage.remove('esteadeb_director_auth');
+      safeStorage.remove('esteadeb_director_email');
     } else {
       await supabase.auth.signOut();
     }
@@ -195,7 +245,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider value={{
       isAuthenticated, isLoading, userRole,
       studentId, studentName, studentAuthId, session,
-      login, loginStudent, signUpStudent, logout,
+      login, loginDirector, changeDirectorPassword, loginStudent, signUpStudent, logout,
     }}>
       {children}
     </AuthContext.Provider>
