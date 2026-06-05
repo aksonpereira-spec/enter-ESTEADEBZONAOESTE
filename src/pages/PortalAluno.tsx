@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import {
   MapPin, Heart, Download, AlertCircle, Star, TrendingUp,
   TrendingDown, Award, AlertTriangle, CalendarDays, Clock,
   Eye, EyeOff, Lock, Home, KeyRound, ShieldCheck,
-  DollarSign, MessageCircle, Send, CheckCircle, ExternalLink, CreditCard
+  DollarSign, MessageCircle, Send, CheckCircle, ExternalLink, CreditCard, ShoppingBag
 } from 'lucide-react';
 
 const SESSION_KEY = 'portal_aluno_session';
@@ -135,6 +136,7 @@ function PasswordInput({ label, value, onChange, placeholder, name }: { label?: 
 
 /* ─────────────── Main Component ─────────────── */
 export default function PortalAluno() {
+  const navigate = useNavigate();
   const [screen, setScreen] = useState<'login' | 'change-password' | 'portal'>('login');
   const [session, setSession] = useState<AlunoSession | null>(null);
   const [activeTab, setActiveTab] = useState<'inicio' | 'notas' | 'calendario' | 'financeiro' | 'ficha' | 'documentos'>('inicio');
@@ -501,6 +503,12 @@ export default function PortalAluno() {
                 {session.turmaNome}
               </span>
             )}
+            <button onClick={() => navigate('/loja')}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#ffffff', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', padding: '5px 12px', borderRadius: 8, transition: 'all 0.15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.25)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.15)'; }}>
+              <ShoppingBag size={14} />Loja
+            </button>
             <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'rgba(255,255,255,0.6)', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 10px', borderRadius: 8, transition: 'all 0.15s' }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = '#fca5a5'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.6)'; }}>
@@ -522,6 +530,59 @@ export default function PortalAluno() {
       </div>
 
       {/* ── Content ── */}
+      {/* ── Financial Status Banner (persistent, always visible) ── */}
+      {mensalidades.length > 0 && (() => {
+        const atrasados = mensalidades.filter(m => m.situacao === 'Atrasado');
+        const pendentes = mensalidades.filter(m => m.situacao === 'Pendente');
+        if (atrasados.length > 0) {
+          return (
+            <div style={{ background: '#7f1d1d', borderBottom: '3px solid #dc2626', padding: '12px 16px' }}>
+              <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, animation: 'pulse 1.5s ease-in-out infinite' }}>
+                  <AlertTriangle size={18} style={{ color: '#ffffff' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 800, fontSize: 14, color: '#fca5a5', lineHeight: 1.2 }}>
+                    ATENÇÃO: {atrasados.length} MENSALIDADE{atrasados.length > 1 ? 'S' : ''} EM ATRASO!
+                  </p>
+                  <p style={{ fontSize: 12, color: '#fecaca', marginTop: 2, lineHeight: 1.4 }}>
+                    Regularize seu pagamento imediatamente. Entre em contato com o coordenador ou compareça presencialmente.
+                  </p>
+                </div>
+                <button onClick={() => setActiveTab('financeiro')}
+                  style={{ flexShrink: 0, background: '#dc2626', color: '#ffffff', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Ver Detalhes
+                </button>
+              </div>
+            </div>
+          );
+        }
+        if (pendentes.length > 0) {
+          return (
+            <div style={{ background: '#78350f', borderBottom: '3px solid #d97706', padding: '10px 16px' }}>
+              <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Clock size={16} style={{ color: '#ffffff' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 700, fontSize: 13, color: '#fde68a', lineHeight: 1.2 }}>
+                    Atenção: {pendentes.length} mensalidade{pendentes.length > 1 ? 's' : ''} pendente{pendentes.length > 1 ? 's' : ''}
+                  </p>
+                  <p style={{ fontSize: 12, color: '#fef3c7', marginTop: 1 }}>
+                    Regularize seu pagamento para evitar atrasos.
+                  </p>
+                </div>
+                <button onClick={() => setActiveTab('financeiro')}
+                  style={{ flexShrink: 0, background: '#d97706', color: '#ffffff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  Ver Detalhes
+                </button>
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
       <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
 
         {/* ══ TAB: INÍCIO ══════════════════════════════════════ */}
@@ -654,6 +715,21 @@ export default function PortalAluno() {
                 </button>
               ))}
             </div>
+
+            {/* Loja do Aluno CTA */}
+            <button onClick={() => navigate('/loja')}
+              style={{ width: '100%', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', border: 'none', borderRadius: 16, padding: '18px 24px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 4px 16px rgba(124,58,237,0.3)', transition: 'all 0.2s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 6px 24px rgba(124,58,237,0.45)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 16px rgba(124,58,237,0.3)'; }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ShoppingBag size={24} style={{ color: '#ffffff' }} />
+              </div>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <p style={{ fontWeight: 800, fontSize: 16, color: '#ffffff', marginBottom: 2 }}>Loja do Aluno</p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>Apostilas, materiais e produtos disponíveis</p>
+              </div>
+              <ChevronRight size={20} style={{ color: 'rgba(255,255,255,0.7)', flexShrink: 0 }} />
+            </button>
 
             {/* Observações / Reclamações */}
             <div className="portal-card" style={{ padding: 20 }}>
@@ -1164,7 +1240,7 @@ export default function PortalAluno() {
         )}
       </main>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }`}</style>
     </div>
   );
 }
