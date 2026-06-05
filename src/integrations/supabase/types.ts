@@ -3734,6 +3734,8 @@ export type Database = {
           id: string
           lida: boolean | null
           mensagem: string
+          respondida_em: string | null
+          resposta: string | null
         }
         Insert: {
           aluno_id: string
@@ -3741,6 +3743,8 @@ export type Database = {
           id?: string
           lida?: boolean | null
           mensagem?: string
+          respondida_em?: string | null
+          resposta?: string | null
         }
         Update: {
           aluno_id?: string
@@ -3748,6 +3752,8 @@ export type Database = {
           id?: string
           lida?: boolean | null
           mensagem?: string
+          respondida_em?: string | null
+          resposta?: string | null
         }
         Relationships: [
           {

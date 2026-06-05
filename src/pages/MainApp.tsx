@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Users, Building2, CreditCard, ClipboardCheck, Menu, X, ChevronRight, BarChart3, Settings, MapPin, User, GraduationCap, Package, CalendarDays } from 'lucide-react';
+import { LogOut, Users, Building2, CreditCard, ClipboardCheck, Menu, X, ChevronRight, BarChart3, Settings, MapPin, User, GraduationCap, Package, CalendarDays, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import AlunosTab from '@/components/tabs/AlunosTab';
 import TurmasTab from '@/components/tabs/TurmasTab';
@@ -12,9 +12,10 @@ import ConfigTab from '@/components/tabs/ConfigTab';
 import FichasTab from '@/components/tabs/FichasTab';
 import EstoqueTab from '@/components/tabs/EstoqueTab';
 import CalendarioTab from '@/components/tabs/CalendarioTab';
+import MensagensTab from '@/components/tabs/MensagensTab';
 import { NucleoConfig } from '@/types/school';
 
-type Tab = 'alunos' | 'turmas' | 'mensalidade' | 'chamada' | 'financeiro' | 'fichas' | 'estoque' | 'calendario' | 'config';
+type Tab = 'alunos' | 'turmas' | 'mensalidade' | 'chamada' | 'financeiro' | 'fichas' | 'estoque' | 'calendario' | 'mensagens' | 'config';
 
 const TABS = [
   { id: 'alunos' as Tab, label: 'Cadastro de Alunos', icon: Users, desc: 'Gerencie os alunos cadastrados' },
@@ -25,6 +26,7 @@ const TABS = [
   { id: 'fichas' as Tab, label: 'Fichas Online', icon: GraduationCap, desc: 'Fichas cadastradas pelo Portal do Aluno' },
   { id: 'estoque' as Tab, label: 'Estoque', icon: Package, desc: 'Apostilas, camisas e pedidos dos alunos' },
   { id: 'calendario' as Tab, label: 'Calendário de Aulas', icon: CalendarDays, desc: 'Calendário de aulas e provas' },
+  { id: 'mensagens' as Tab, label: 'Mensagens', icon: MessageCircle, desc: 'Mensagens dos alunos para o coordenador' },
   { id: 'config' as Tab, label: 'Configurações', icon: Settings, desc: 'Núcleo, coordenador e sistema' },
 ];
 
@@ -193,6 +195,7 @@ const MainApp = () => {
             {activeTab === 'fichas' && <FichasTab />}
             {activeTab === 'estoque' && <EstoqueTab />}
             {activeTab === 'calendario' && <CalendarioTab />}
+            {activeTab === 'mensagens' && <MensagensTab />}
             {activeTab === 'config' && <ConfigTab onConfigChange={setNucleoConfig} />}
           </div>
         </main>

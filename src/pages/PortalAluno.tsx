@@ -67,7 +67,7 @@ interface Nota { id: string; disciplina_nome: string; disciplina_numero: number;
 interface Arquivo { id: string; nome_arquivo: string; url: string; storage_path: string; uploaded_at: string; }
 interface Evento { id: string; data_aula: string; professor: string; disciplina: string; obs: string; provas_disciplinas: string; }
 interface Mensalidade { id: string; mes: string; valor: number; situacao: string; forma_pagamento: string; obs: string; comprovante_url: string; }
-interface Observacao { id: string; mensagem: string; created_at: string; lida: boolean; }
+interface Observacao { id: string; mensagem: string; created_at: string; lida: boolean; resposta: string | null; respondida_em: string | null; }
 
 const emptyProfile: ProfileData = {
   nome_completo: '', cpf: '', rg: '', orgao_expedidor: '', data_nascimento: '',
@@ -226,7 +226,11 @@ export default function PortalAluno() {
 
   const loadObservacoes = useCallback(async (alunoId: string) => {
     const { data } = await supabase.from('observacoes_portal').select('*').eq('aluno_id', alunoId).order('created_at', { ascending: false });
-    setObservacoes(data || []);
+    setObservacoes((data || []).map(r => ({
+      id: r.id, mensagem: r.mensagem, created_at: r.created_at, lida: r.lida ?? false,
+      resposta: (r as { resposta?: string | null }).resposta ?? null,
+      respondida_em: (r as { respondida_em?: string | null }).respondida_em ?? null,
+    })));
   }, []);
 
   useEffect(() => {
@@ -368,7 +372,7 @@ export default function PortalAluno() {
     try {
       await supabase.from('observacoes_portal').insert({ aluno_id: session.alunoId, mensagem: novaMensagem.trim() });
       setNovaMensagem('');
-      toast.success('Mensagem enviada para a secretaria!');
+      toast.success('Mensagem enviada para o coordenador!');
       loadObservacoes(session.alunoId);
     } catch { toast.error('Erro ao enviar mensagem'); }
     finally { setSendingObs(false); }
@@ -595,7 +599,7 @@ export default function PortalAluno() {
                   {temAtrasado && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10, background: T.redBg, border: `1px solid ${T.redBorder}`, marginBottom: 12 }}>
                       <AlertTriangle size={14} style={{ color: T.red, flexShrink: 0 }} />
-                      <p style={{ fontSize: 12, color: T.red, fontWeight: 600 }}>Atenção: há mensalidade(s) em atraso. Contacte a secretaria.</p>
+                      <p style={{ fontSize: 12, color: T.red, fontWeight: 600 }}>Atenção: há mensalidade(s) em atraso. Contacte o coordenador.</p>
                     </div>
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -654,11 +658,11 @@ export default function PortalAluno() {
             {/* Observações / Reclamações */}
             <div className="portal-card" style={{ padding: 20 }}>
               <p style={{ fontWeight: 700, fontSize: 14, color: T.text, display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <MessageCircle size={15} style={{ color: T.blue }} />Fale com a Secretaria
+                <MessageCircle size={15} style={{ color: T.blue }} />Fale com o Coordenador
               </p>
-              <p style={{ fontSize: 12, color: T.textMuted, marginBottom: 14 }}>Dúvidas, reclamações, sugestões ou observações</p>
+              <p style={{ fontSize: 12, color: T.textMuted, marginBottom: 14 }}>Dúvidas, reclamações, sugestões ou observações para o coordenador</p>
               <textarea value={novaMensagem} onChange={e => setNovaMensagem(e.target.value)}
-                placeholder="Escreva aqui sua mensagem para a secretaria..."
+                placeholder="Escreva aqui sua mensagem para o coordenador..."
                 rows={3} className="portal-input"
                 style={{ resize: 'vertical', minHeight: 80, fontFamily: 'inherit', lineHeight: 1.5 }} />
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
@@ -671,14 +675,34 @@ export default function PortalAluno() {
               {observacoes.length > 0 && (
                 <div style={{ marginTop: 16, borderTop: `1px solid ${T.cardBorder}`, paddingTop: 14 }}>
                   <p style={{ fontSize: 11, color: T.textMuted, fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Mensagens enviadas</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {observacoes.slice(0, 5).map(o => (
-                      <div key={o.id} style={{ padding: '10px 14px', borderRadius: 10, background: T.inputBg, border: `1px solid ${T.cardBorder}` }}>
-                        <p style={{ fontSize: 12, color: T.textSec, lineHeight: 1.5, marginBottom: 4 }}>{o.mensagem}</p>
-                        <p style={{ fontSize: 10, color: T.textFaint }}>
-                          {new Date(o.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          {o.lida && <span style={{ marginLeft: 8, color: T.green }}>• Lida pela secretaria</span>}
-                        </p>
+                      <div key={o.id} style={{ borderRadius: 10, border: `1px solid ${o.resposta ? T.greenBorder : T.cardBorder}`, overflow: 'hidden' }}>
+                        {/* Student message */}
+                        <div style={{ padding: '10px 14px', background: T.inputBg }}>
+                          <p style={{ fontSize: 12, color: T.textSec, lineHeight: 1.5, marginBottom: 4 }}>{o.mensagem}</p>
+                          <p style={{ fontSize: 10, color: T.textFaint, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {new Date(o.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            {o.resposta
+                              ? <span style={{ color: T.green, display: 'flex', alignItems: 'center', gap: 3 }}><CheckCircle size={9} />Respondida pelo coordenador</span>
+                              : o.lida
+                              ? <span style={{ color: T.textMuted }}>• Lida pelo coordenador</span>
+                              : <span style={{ color: T.amber }}>• Aguardando leitura</span>
+                            }
+                          </p>
+                        </div>
+                        {/* Coordinator reply */}
+                        {o.resposta && (
+                          <div style={{ padding: '10px 14px', background: T.greenBg, borderTop: `1px solid ${T.greenBorder}` }}>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: T.green, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <MessageCircle size={10} />Resposta do Coordenador
+                              {o.respondida_em && <span style={{ fontWeight: 400, color: T.textMuted, marginLeft: 4 }}>
+                                — {new Date(o.respondida_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </span>}
+                            </p>
+                            <p style={{ fontSize: 12, color: '#166534', lineHeight: 1.5 }}>{o.resposta}</p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -863,7 +887,7 @@ export default function PortalAluno() {
               <h3 style={{ fontWeight: 800, fontSize: 16, color: '#ffffff', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <DollarSign size={16} />Situação Financeira
               </h3>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>Consulta somente leitura — para dúvidas contacte a secretaria</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', marginTop: 4 }}>Consulta somente leitura — para dúvidas contacte o coordenador</p>
             </div>
 
             {mensalidades.length === 0 ? (
@@ -942,7 +966,7 @@ export default function PortalAluno() {
                   })}
                 </div>
                 <p style={{ fontSize: 11, color: T.textFaint, textAlign: 'center', padding: '0 8px' }}>
-                  Os valores são gerenciados pela secretaria. Em caso de divergência, use o campo "Fale com a Secretaria" na página inicial.
+                  Os valores são gerenciados pela secretaria. Em caso de divergência, use o campo "Fale com o Coordenador" na página inicial.
                 </p>
               </>
             )}
