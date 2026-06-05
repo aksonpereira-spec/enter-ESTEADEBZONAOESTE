@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX, Hash, Wand2, Pencil, GraduationCap } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, Users, Phone, Check, X, UserCheck, UserX, Hash, Wand2, Pencil, GraduationCap, DollarSign, Upload, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Nota {
@@ -17,6 +17,23 @@ interface Nota {
   nota: number | null;
   periodo: string;
 }
+
+interface MensalidadeRow {
+  id: string;
+  mes: string;
+  valor: number;
+  situacao: string;
+  forma_pagamento: string;
+  obs: string;
+  comprovante_url: string;
+  comprovante_path: string;
+}
+
+const MESES_LABELS: Record<string, string> = {
+  '01':'Janeiro','02':'Fevereiro','03':'Março','04':'Abril','05':'Maio','06':'Junho',
+  '07':'Julho','08':'Agosto','09':'Setembro','10':'Outubro','11':'Novembro','12':'Dezembro',
+};
+const mesLabel = (mes: string) => { const [y,m] = mes.split('-'); return `${MESES_LABELS[m]} ${y}`; };
 
 const emptyForm = {
   nome: '', matricula: '', telefone: '', email: '',
@@ -74,6 +91,12 @@ const AlunosTab = () => {
   const [notaForm, setNotaForm] = useState({ disciplina_nome: '', disciplina_numero: 1, nota: '', periodo: String(new Date().getFullYear()) });
   const [savingNota, setSavingNota] = useState(false);
 
+  // Financeiro state
+  const [finDialog, setFinDialog] = useState<{ alunoId: string; nome: string } | null>(null);
+  const [mensalidadesAluno, setMensalidadesAluno] = useState<MensalidadeRow[]>([]);
+  const [uploadingComp, setUploadingComp] = useState<string | null>(null); // mensalidade id being uploaded
+  const finFileRefs = useState<Record<string, HTMLInputElement | null>>({})[0];
+
   const loadNotas = async (alunoId: string) => {
     const { data } = await supabase.from('notas_aluno').select('*')
       .eq('aluno_id', alunoId).order('disciplina_numero', { ascending: true });
@@ -118,6 +141,50 @@ const AlunosTab = () => {
     const val = nota !== '' ? parseFloat(nota) : null;
     await supabase.from('notas_aluno').update({ nota: val }).eq('id', id);
     if (notasDialog) loadNotas(notasDialog.alunoId);
+  };
+
+  // Financial helpers
+  const loadMensalidadesAluno = async (alunoId: string) => {
+    const { data } = await supabase.from('mensalidades').select('*').eq('aluno_id', alunoId).order('mes', { ascending: false });
+    setMensalidadesAluno((data || []).map(r => ({
+      id: r.id, mes: r.mes, valor: Number(r.valor) || 0,
+      situacao: r.situacao || 'Pendente', forma_pagamento: r.forma_pagamento || '',
+      obs: r.obs || '', comprovante_url: (r as { comprovante_url?: string }).comprovante_url || '',
+      comprovante_path: (r as { comprovante_path?: string }).comprovante_path || '',
+    })));
+  };
+
+  const handleOpenFinanceiro = (a: Aluno) => {
+    setFinDialog({ alunoId: a.id, nome: a.nome });
+    loadMensalidadesAluno(a.id);
+  };
+
+  const handleUploadComprovante = async (mensId: string, alunoId: string, mes: string, file: File) => {
+    if (file.size > 20 * 1024 * 1024) { toast.error('Arquivo muito grande (máx 20 MB)'); return; }
+    setUploadingComp(mensId);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${alunoId}/${mes}_${Date.now()}_${safeName}`;
+      // Remove old comprovante if exists
+      const old = mensalidadesAluno.find(m => m.id === mensId);
+      if (old?.comprovante_path) {
+        await supabase.storage.from('comprovantes').remove([old.comprovante_path]);
+      }
+      const { data: up, error } = await supabase.storage.from('comprovantes').upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('comprovantes').getPublicUrl(up.path);
+      await supabase.from('mensalidades').update({ comprovante_url: publicUrl, comprovante_path: up.path }).eq('id', mensId);
+      toast.success('Comprovante enviado!');
+      loadMensalidadesAluno(alunoId);
+    } catch { toast.error('Erro ao enviar comprovante'); }
+    finally { setUploadingComp(null); }
+  };
+
+  const handleRemoveComprovante = async (mensId: string, alunoId: string, path: string) => {
+    if (path) await supabase.storage.from('comprovantes').remove([path]);
+    await supabase.from('mensalidades').update({ comprovante_url: '', comprovante_path: '' }).eq('id', mensId);
+    toast.success('Comprovante removido');
+    loadMensalidadesAluno(alunoId);
   };
 
   const load = useCallback(async () => {
@@ -464,6 +531,7 @@ const AlunosTab = () => {
                     <td className="table-td text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => handleOpenNotas(a)} className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary" title="Gerenciar notas"><GraduationCap className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleOpenFinanceiro(a)} className="h-8 w-8 p-0 hover:bg-emerald-50 hover:text-emerald-600" title="Financeiro / Comprovantes"><DollarSign className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => edit(a)} className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"><Edit2 className="w-3.5 h-3.5" /></Button>
                         <Button variant="ghost" size="sm" onClick={() => del(a.id)} className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></Button>
                       </div>
@@ -574,6 +642,109 @@ const AlunosTab = () => {
           {notas.length === 0 && (
             <div className="text-center py-6 text-muted-foreground text-sm">
               Nenhuma nota lançada. Use o formulário acima para adicionar.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Financeiro */}
+      <Dialog open={!!finDialog} onOpenChange={open => !open && setFinDialog(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-emerald-600" />
+              Financeiro — {finDialog?.nome}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-muted-foreground">Mensalidades registradas no sistema</p>
+            <Button variant="ghost" size="sm" onClick={() => finDialog && loadMensalidadesAluno(finDialog.alunoId)} className="h-7 gap-1 text-xs">
+              <RefreshCw className="w-3 h-3" />Atualizar
+            </Button>
+          </div>
+
+          {mensalidadesAluno.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              <DollarSign className="w-10 h-10 mx-auto mb-2 opacity-20" />
+              Nenhuma mensalidade registrada para este aluno
+            </div>
+          ) : (
+            <div className="border border-border rounded-xl overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="table-head">
+                    <th className="table-th text-left">Mês</th>
+                    <th className="table-th text-right">Valor</th>
+                    <th className="table-th text-center">Situação</th>
+                    <th className="table-th text-center">Comprovante</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {mensalidadesAluno.map(m => (
+                    <tr key={m.id} className="table-row">
+                      <td className="table-td">
+                        <p className="font-medium text-sm text-foreground">{mesLabel(m.mes)}</p>
+                        {m.forma_pagamento && <p className="text-xs text-muted-foreground">{m.forma_pagamento}</p>}
+                      </td>
+                      <td className="table-td text-right">
+                        <span className="font-semibold text-sm text-foreground">
+                          {m.valor > 0 ? `R$ ${m.valor.toFixed(2).replace('.',',')}` : '—'}
+                        </span>
+                      </td>
+                      <td className="table-td text-center">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          m.situacao === 'Pago' ? 'bg-emerald-100 text-emerald-700' :
+                          m.situacao === 'Atrasado' ? 'bg-red-100 text-red-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {m.situacao === 'Pago' && <Check className="w-3 h-3" />}
+                          {m.situacao}
+                        </span>
+                      </td>
+                      <td className="table-td text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {m.comprovante_url ? (
+                            <>
+                              <a href={m.comprovante_url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline font-medium">
+                                <ExternalLink className="w-3 h-3" />Ver PDF
+                              </a>
+                              <button onClick={() => finDialog && handleRemoveComprovante(m.id, finDialog.alunoId, m.comprovante_path)}
+                                className="text-muted-foreground hover:text-destructive transition-colors ml-1" title="Remover">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <input
+                                type="file"
+                                id={`comp-${m.id}`}
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                className="hidden"
+                                ref={el => { finFileRefs[m.id] = el; }}
+                                onChange={e => {
+                                  const file = e.target.files?.[0];
+                                  if (file && finDialog) handleUploadComprovante(m.id, finDialog.alunoId, m.mes, file);
+                                }}
+                              />
+                              <Button variant="outline" size="sm"
+                                onClick={() => finFileRefs[m.id]?.click()}
+                                disabled={uploadingComp === m.id}
+                                className="h-7 text-xs gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                                {uploadingComp === m.id
+                                  ? <div className="w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-600 rounded-full animate-spin" />
+                                  : <Upload className="w-3 h-3" />}
+                                {uploadingComp === m.id ? 'Enviando...' : 'Enviar PDF'}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </DialogContent>

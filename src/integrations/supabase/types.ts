@@ -3565,6 +3565,8 @@ export type Database = {
           apostilas: string | null
           cartao_assinatura: number | null
           cartao_debito: number | null
+          comprovante_path: string | null
+          comprovante_url: string | null
           created_at: string | null
           dinheiro: number | null
           forma_pagamento: string | null
@@ -3582,6 +3584,8 @@ export type Database = {
           apostilas?: string | null
           cartao_assinatura?: number | null
           cartao_debito?: number | null
+          comprovante_path?: string | null
+          comprovante_url?: string | null
           created_at?: string | null
           dinheiro?: number | null
           forma_pagamento?: string | null
@@ -3599,6 +3603,8 @@ export type Database = {
           apostilas?: string | null
           cartao_assinatura?: number | null
           cartao_debito?: number | null
+          comprovante_path?: string | null
+          comprovante_url?: string | null
           created_at?: string | null
           dinheiro?: number | null
           forma_pagamento?: string | null
@@ -3720,6 +3726,37 @@ export type Database = {
           nome_nucleo?: string | null
         }
         Relationships: []
+      }
+      observacoes_portal: {
+        Row: {
+          aluno_id: string
+          created_at: string | null
+          id: string
+          lida: boolean | null
+          mensagem: string
+        }
+        Insert: {
+          aluno_id: string
+          created_at?: string | null
+          id?: string
+          lida?: boolean | null
+          mensagem?: string
+        }
+        Update: {
+          aluno_id?: string
+          created_at?: string | null
+          id?: string
+          lida?: boolean | null
+          mensagem?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "observacoes_portal_aluno_id_fkey"
+            columns: ["aluno_id"]
+            referencedRelation: "alunos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       portal_arquivos: {
         Row: {

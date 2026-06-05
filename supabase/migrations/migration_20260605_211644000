@@ -1,0 +1,17 @@
+
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('comprovantes', 'comprovantes', true, 20971520, ARRAY['application/pdf','image/jpeg','image/png','image/webp'])
+ON CONFLICT (id) DO NOTHING;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'comprovantes_anon_insert' AND tablename = 'objects') THEN
+    CREATE POLICY comprovantes_anon_insert ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'comprovantes');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'comprovantes_anon_select' AND tablename = 'objects') THEN
+    CREATE POLICY comprovantes_anon_select ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'comprovantes');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'comprovantes_anon_delete' AND tablename = 'objects') THEN
+    CREATE POLICY comprovantes_anon_delete ON storage.objects FOR DELETE TO anon, authenticated USING (bucket_id = 'comprovantes');
+  END IF;
+END $$;

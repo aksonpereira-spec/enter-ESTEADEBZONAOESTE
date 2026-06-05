@@ -1,0 +1,14 @@
+
+ALTER TABLE mensalidades
+  ADD COLUMN IF NOT EXISTS comprovante_url TEXT DEFAULT '',
+  ADD COLUMN IF NOT EXISTS comprovante_path TEXT DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS observacoes_portal (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  aluno_id UUID NOT NULL REFERENCES alunos(id) ON DELETE CASCADE,
+  mensagem TEXT NOT NULL DEFAULT '',
+  lida BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE observacoes_portal ENABLE ROW LEVEL SECURITY;
+CREATE POLICY allow_all_obs ON observacoes_portal FOR ALL USING (true) WITH CHECK (true);
