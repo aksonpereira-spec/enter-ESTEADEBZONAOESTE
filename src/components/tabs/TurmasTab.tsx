@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Turma } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -260,6 +261,7 @@ const DisciplinasPanel = ({ turmaId, onHonorarioChange }: { turmaId: string; onH
 
 // ─── Main TurmasTab ────────────────────────────────────────────────────────────
 const TurmasTab = () => {
+  const { coordenadorId } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -270,25 +272,27 @@ const TurmasTab = () => {
   const [honorarioKey, setHonorarioKey] = useState(0);
 
   const load = useCallback(async () => {
+    if (!coordenadorId) return;
     setLoading(true);
-    const { data } = await supabase.from('classes').select('id, nome, nucleo, created_at').order('created_at', { ascending: true });
+    const { data } = await supabase.from('classes').select('id, nome, nucleo, created_at').eq('coordenador_id', coordenadorId).order('created_at', { ascending: true });
     if (data) setTurmas(data.map(r => ({
       id: r.id, nome: r.nome, turno: 'Noite' as const,
       disciplina: '', professor: '', diasSemana: '',
       nucleo: r.nucleo ?? '', honorario: 0, createdAt: r.created_at,
     })));
     setLoading(false);
-  }, []);
+  }, [coordenadorId]);
 
   useEffect(() => { load(); }, [load]);
 
   const save = async () => {
     if (!nome.trim()) { toast.error('Nome da turma é obrigatório'); return; }
+    if (!coordenadorId) return;
     if (editingId) {
       const { error } = await supabase.from('classes').update({ nome: nome.trim(), nucleo }).eq('id', editingId);
       if (!error) toast.success('Turma atualizada'); else toast.error('Erro ao salvar');
     } else {
-      const { error } = await supabase.from('classes').insert({ nome: nome.trim(), nucleo, turno: 'Noite' });
+      const { error } = await supabase.from('classes').insert({ nome: nome.trim(), nucleo, turno: 'Noite', coordenador_id: coordenadorId });
       if (!error) toast.success('Turma criada'); else toast.error('Erro ao salvar');
     }
     setNome(''); setNucleo(''); setEditingId(null); setShowForm(false); load();

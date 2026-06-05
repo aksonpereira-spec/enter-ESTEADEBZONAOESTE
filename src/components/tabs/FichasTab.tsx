@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -97,6 +98,7 @@ function openWhatsApp(url: string) {
 }
 
 const FichasTab = () => {
+  const { coordenadorId } = useAuth();
   const [profiles, setProfiles] = useState<StudentProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -110,16 +112,19 @@ const FichasTab = () => {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  useEffect(() => { loadProfiles(); loadAlunos(); }, []);
+  useEffect(() => { loadProfiles(); loadAlunos(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coordenadorId]);
 
   const loadProfiles = async () => {
+    if (!coordenadorId) return;
     setLoading(true);
     setLoadError('');
 
-    // Step 1: fetch all student_profiles
+    // Step 1: fetch all student_profiles for this coordinator
     const { data: profileData, error: profileError } = await supabase
       .from('student_profiles')
       .select('*')
+      .eq('coordenador_id', coordenadorId)
       .order('created_at', { ascending: false });
 
     if (profileError) {
@@ -199,7 +204,8 @@ const FichasTab = () => {
   };
 
   const loadAlunos = async () => {
-    const { data } = await supabase.from('alunos').select('id, nome, matricula').eq('ativo', true).order('nome');
+    if (!coordenadorId) return;
+    const { data } = await supabase.from('alunos').select('id, nome, matricula').eq('coordenador_id', coordenadorId).eq('ativo', true).order('nome');
     if (data) setAlunos(data as Aluno[]);
   };
 
@@ -241,7 +247,10 @@ const FichasTab = () => {
   const linkAluno = async (profileId: string, alunoId: string) => {
     if (!alunoId || alunoId === 'none') return;
     setLinkingId(profileId);
-    const { error } = await supabase.from('student_profiles').update({ aluno_id: alunoId }).eq('id', profileId);
+    const { error } = await supabase.from('student_profiles').update({
+      aluno_id: alunoId,
+      ...(coordenadorId ? { coordenador_id: coordenadorId } : {}),
+    }).eq('id', profileId);
     if (error) {
       toast.error('Erro ao vincular: ' + error.message);
     } else {

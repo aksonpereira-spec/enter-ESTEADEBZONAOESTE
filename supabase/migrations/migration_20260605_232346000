@@ -1,0 +1,65 @@
+
+-- Add coordenador_id to all major tables
+-- Default = Zona Oeste fixed UUID for existing data
+
+ALTER TABLE alunos ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE classes ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE mensalidades ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE notas_aluno ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE nucleo_config ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE estoque_materiais ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE observacoes_portal ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE portal_acessos ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE portal_arquivos ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+
+-- Backfill all existing data to Zona Oeste
+UPDATE alunos SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE classes SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE mensalidades SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE notas_aluno SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE nucleo_config SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE estoque_materiais SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE observacoes_portal SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE portal_acessos SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE portal_arquivos SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+UPDATE student_profiles SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+
+-- attendance_sessions if exists
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.columns WHERE table_name='attendance_sessions') THEN
+    ALTER TABLE attendance_sessions ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+    UPDATE attendance_sessions SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+END $$;
+
+-- calendario_aulas if exists
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.columns WHERE table_name='calendario_aulas') THEN
+    ALTER TABLE calendario_aulas ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+    UPDATE calendario_aulas SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+END $$;
+
+-- honorarios_pagamentos if exists
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.columns WHERE table_name='honorarios_pagamentos') THEN
+    ALTER TABLE honorarios_pagamentos ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+    UPDATE honorarios_pagamentos SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+END $$;
+
+-- loja tables if exist
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.columns WHERE table_name='loja_pedidos') THEN
+    ALTER TABLE loja_pedidos ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+    UPDATE loja_pedidos SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.columns WHERE table_name='loja_usuarios') THEN
+    ALTER TABLE loja_usuarios ADD COLUMN IF NOT EXISTS coordenador_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+    UPDATE loja_usuarios SET coordenador_id = '00000000-0000-0000-0000-000000000001';
+  END IF;
+END $$;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -70,6 +71,7 @@ function safeCopy(text: string, onSuccess: () => void) {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const EstoqueTab = () => {
+  const { coordenadorId } = useAuth();
   const [materiais, setMateriais] = useState<Material[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [usuarios, setUsuarios] = useState<LojaUser[]>([]);
@@ -91,11 +93,12 @@ const EstoqueTab = () => {
   const lojaUrl = `${window.location.origin}/loja`;
 
   const load = useCallback(async () => {
+    if (!coordenadorId) return;
     setLoading(true);
     const [matRes, pedRes, usrRes] = await Promise.all([
-      supabase.from('estoque_materiais').select('*').order('created_at', { ascending: false }),
-      supabase.from('loja_pedidos').select('*, loja_usuarios(nome, username), estoque_materiais(nome, tipo, disciplina)').order('created_at', { ascending: false }),
-      supabase.from('loja_usuarios').select('id, nome, username, created_at').order('created_at', { ascending: false }),
+      supabase.from('estoque_materiais').select('*').eq('coordenador_id', coordenadorId).order('created_at', { ascending: false }),
+      supabase.from('loja_pedidos').select('*, loja_usuarios(nome, username), estoque_materiais(nome, tipo, disciplina)').eq('coordenador_id', coordenadorId).order('created_at', { ascending: false }),
+      supabase.from('loja_usuarios').select('id, nome, username, created_at').eq('coordenador_id', coordenadorId).order('created_at', { ascending: false }),
     ]);
     if (matRes.data) setMateriais(matRes.data.map(r => ({
       id: r.id, tipo: r.tipo, disciplina: r.disciplina ?? '', nome: r.nome,
@@ -106,13 +109,14 @@ const EstoqueTab = () => {
     if (pedRes.data) setPedidos(pedRes.data as unknown as Pedido[]);
     if (usrRes.data) setUsuarios(usrRes.data.map(r => ({ id: r.id, nome: r.nome, username: r.username, createdAt: r.created_at })));
     setLoading(false);
-  }, []);
+  }, [coordenadorId]);
 
   useEffect(() => { load(); }, [load]);
 
   // ── CRUD ──
   const saveMaterial = async () => {
     if (!form.nome.trim()) { toast.error('Nome do material é obrigatório'); return; }
+    if (!coordenadorId) return;
     const payload = {
       tipo: form.tipo, disciplina: form.tipo === 'Apostila' ? form.disciplina : '',
       tamanho: form.tipo === 'Camisa' ? form.tamanho : '',
@@ -125,7 +129,7 @@ const EstoqueTab = () => {
       const { error } = await supabase.from('estoque_materiais').update(payload).eq('id', editingId);
       if (!error) { toast.success('Material atualizado'); } else { toast.error('Erro: ' + error.message); return; }
     } else {
-      const { error } = await supabase.from('estoque_materiais').insert(payload);
+      const { error } = await supabase.from('estoque_materiais').insert({ ...payload, coordenador_id: coordenadorId });
       if (!error) { toast.success('Material cadastrado'); } else { toast.error('Erro: ' + error.message); return; }
     }
     setForm(emptyMat); setEditingId(null); setShowForm(false); load();

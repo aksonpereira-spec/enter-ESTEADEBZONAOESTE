@@ -1,0 +1,14 @@
+
+-- Trigger to auto-set coordenador_id in portal_arquivos from aluno
+CREATE OR REPLACE FUNCTION fn_set_arquivo_coordenador()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  SELECT coordenador_id INTO NEW.coordenador_id FROM alunos WHERE id = NEW.aluno_id LIMIT 1;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_arquivo_coordenador ON portal_arquivos;
+CREATE TRIGGER trg_arquivo_coordenador
+  BEFORE INSERT ON portal_arquivos
+  FOR EACH ROW EXECUTE FUNCTION fn_set_arquivo_coordenador();

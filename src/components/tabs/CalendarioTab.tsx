@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,7 @@ interface Evento {
 const MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 export default function CalendarioTab() {
+  const { coordenadorId } = useAuth();
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -26,25 +28,29 @@ export default function CalendarioTab() {
   });
 
   const load = async () => {
+    if (!coordenadorId) return;
     setLoading(true);
-    const { data } = await supabase.from('calendario_aulas').select('*').order('data_aula', { ascending: true });
+    const { data } = await supabase.from('calendario_aulas').select('*').eq('coordenador_id', coordenadorId).order('data_aula', { ascending: true });
     setEventos(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coordenadorId]);
 
   const handleAdd = async () => {
     if (!form.data_aula || !form.professor || !form.disciplina) {
       toast.error('Preencha data, professor e disciplina');
       return;
     }
+    if (!coordenadorId) return;
     const { error } = await supabase.from('calendario_aulas').insert({
       data_aula: form.data_aula,
       professor: form.professor,
       disciplina: form.disciplina,
       obs: form.obs,
       provas_disciplinas: form.provas_disciplinas,
+      coordenador_id: coordenadorId,
     });
     if (error) { toast.error('Erro ao adicionar evento'); return; }
     toast.success('Evento adicionado');

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Aluno, Turma, TipoBolsa } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -62,9 +63,9 @@ type AlunoRow = {
   classes: { id: string; nome: string; turno: string; disciplina: string | null; professor: string | null; dias_semana: string | null; nucleo: string | null; honorario: number | null; created_at: string } | null;
 };
 
-const generateMatricula = async (ano: number): Promise<string> => {
+const generateMatricula = async (ano: number, coordenadorId: string): Promise<string> => {
   const prefix = String(ano);
-  const { data } = await supabase.from('alunos').select('matricula').ilike('matricula', `${prefix}%`);
+  const { data } = await supabase.from('alunos').select('matricula').ilike('matricula', `${prefix}%`).eq('coordenador_id', coordenadorId);
   const nums = (data || [])
     .map(r => parseInt((r.matricula || '').replace(prefix, ''), 10))
     .filter(n => !isNaN(n));
@@ -73,6 +74,7 @@ const generateMatricula = async (ano: number): Promise<string> => {
 };
 
 const AlunosTab = () => {
+  const { coordenadorId } = useAuth();
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +124,7 @@ const AlunosTab = () => {
       disciplina_numero: notaForm.disciplina_numero,
       nota: notaVal,
       periodo: notaForm.periodo,
+      coordenador_id: coordenadorId,
     });
     if (error) { toast.error('Erro ao salvar nota'); }
     else {
@@ -188,10 +191,11 @@ const AlunosTab = () => {
   };
 
   const load = useCallback(async () => {
+    if (!coordenadorId) return;
     setLoading(true);
     const [aRes, tRes] = await Promise.all([
-      supabase.from('alunos').select('*, classes(id, nome, turno, disciplina, professor, dias_semana, nucleo, honorario, created_at)').order('nome'),
-      supabase.from('classes').select('*').order('nome'),
+      supabase.from('alunos').select('*, classes(id, nome, turno, disciplina, professor, dias_semana, nucleo, honorario, created_at)').eq('coordenador_id', coordenadorId).order('nome'),
+      supabase.from('classes').select('*').eq('coordenador_id', coordenadorId).order('nome'),
     ]);
     if (tRes.data) setTurmas(tRes.data.map(r => ({
       id: r.id, nome: r.nome, turno: r.turno as 'Manhã'|'Tarde'|'Noite', disciplina: r.disciplina ?? '',
@@ -207,24 +211,26 @@ const AlunosTab = () => {
       })));
     }
     setLoading(false);
-  }, []);
+  }, [coordenadorId]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleGenerateMatricula = async () => {
+    if (!coordenadorId) return;
     setGeneratingMatricula(true);
-    const matricula = await generateMatricula(new Date().getFullYear());
+    const matricula = await generateMatricula(new Date().getFullYear(), coordenadorId);
     setForm(p => ({ ...p, matricula }));
     setGeneratingMatricula(false);
   };
 
   const handleGenerateAllMatriculas = async () => {
+    if (!coordenadorId) return;
     const semMatricula = alunos.filter(a => !a.matricula);
     if (semMatricula.length === 0) { toast.info('Todos os alunos já têm matrícula'); return; }
     setGeneratingAllMatriculas(true);
     const ano = new Date().getFullYear();
     const prefix = String(ano);
-    const { data: existing } = await supabase.from('alunos').select('matricula').ilike('matricula', `${prefix}%`);
+    const { data: existing } = await supabase.from('alunos').select('matricula').ilike('matricula', `${prefix}%`).eq('coordenador_id', coordenadorId);
     const usedNums = new Set(
       (existing || []).map(r => parseInt((r.matricula || '').replace(prefix, ''), 10)).filter(n => !isNaN(n))
     );
@@ -244,10 +250,11 @@ const AlunosTab = () => {
 
   const save = async () => {
     if (!form.nome.trim()) { toast.error('Nome é obrigatório'); return; }
+    if (!coordenadorId) return;
     const payload = {
       nome: form.nome, matricula: form.matricula, telefone: form.telefone,
       email: form.email, turma_id: (form.turmaId && form.turmaId !== 'none') ? form.turmaId : null,
-      ativo: form.ativo, tipo_bolsa: form.tipoBolsa || '',
+      ativo: form.ativo, tipo_bolsa: form.tipoBolsa || '', coordenador_id: coordenadorId,
     };
     if (editingId) {
       const { error } = await supabase.from('alunos').update(payload).eq('id', editingId);
@@ -276,7 +283,8 @@ const AlunosTab = () => {
 
   const generateForAluno = async (a: Aluno) => {
     if (a.matricula) { toast.info('Aluno já possui matrícula'); return; }
-    const matricula = await generateMatricula(new Date().getFullYear());
+    if (!coordenadorId) return;
+    const matricula = await generateMatricula(new Date().getFullYear(), coordenadorId);
     await supabase.from('alunos').update({ matricula }).eq('id', a.id);
     toast.success(`Matrícula ${matricula} gerada`);
     load();

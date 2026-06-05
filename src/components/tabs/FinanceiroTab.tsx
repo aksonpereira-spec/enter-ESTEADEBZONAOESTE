@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Turma } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +57,7 @@ interface MensalidadeExport {
 }
 
 const FinanceiroTab = () => {
+  const { coordenadorId } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -76,6 +78,7 @@ const FinanceiroTab = () => {
   const TAXA_DEBITO = 0.02;
 
   const loadData = useCallback(async () => {
+    if (!coordenadorId) return;
     setLoading(true); setLoadError('');
 
     const [y, m] = selectedMonth.split('-');
@@ -83,10 +86,10 @@ const FinanceiroTab = () => {
     const nextM = parseInt(m) === 12 ? `${parseInt(y)+1}-01-01` : `${y}-${String(parseInt(m)+1).padStart(2,'0')}-01`;
 
     const [tRes, mRes, aRes, sessRes, pagRes] = await Promise.all([
-      supabase.from('classes').select('*').order('nome'),
-      supabase.from('mensalidades').select('*').eq('mes', selectedMonth),
-      supabase.from('alunos').select('id, nome, matricula, turma_id').eq('ativo', true),
-      supabase.from('attendance_sessions').select('turma_id').gte('data', mesStart).lt('data', nextM),
+      supabase.from('classes').select('*').eq('coordenador_id', coordenadorId).order('nome'),
+      supabase.from('mensalidades').select('*').eq('mes', selectedMonth).eq('coordenador_id', coordenadorId),
+      supabase.from('alunos').select('id, nome, matricula, turma_id').eq('coordenador_id', coordenadorId).eq('ativo', true),
+      supabase.from('attendance_sessions').select('turma_id').eq('coordenador_id', coordenadorId).gte('data', mesStart).lt('data', nextM),
       supabase.from('honorarios_pagamentos').select('disciplina_turma_id, pago_em').eq('mes', selectedMonth),
     ]);
 
@@ -205,7 +208,7 @@ const FinanceiroTab = () => {
       totalBruto, totalLiquido, totalAlunos, totalPagos, totalApostilas,
     });
     setLoading(false);
-  }, [selectedMonth, selectedTurma]);
+  }, [selectedMonth, selectedTurma, coordenadorId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

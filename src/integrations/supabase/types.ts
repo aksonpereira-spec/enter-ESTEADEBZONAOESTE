@@ -3112,6 +3112,7 @@ export type Database = {
       alunos: {
         Row: {
           ativo: boolean | null
+          coordenador_id: string
           created_at: string | null
           email: string | null
           id: string
@@ -3127,6 +3128,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
+          coordenador_id?: string
           created_at?: string | null
           email?: string | null
           id?: string
@@ -3142,6 +3144,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean | null
+          coordenador_id?: string
           created_at?: string | null
           email?: string | null
           id?: string
@@ -3203,6 +3206,7 @@ export type Database = {
       }
       attendance_sessions: {
         Row: {
+          coordenador_id: string
           created_at: string | null
           data: string
           disciplina: string | null
@@ -3213,6 +3217,7 @@ export type Database = {
           turno: string | null
         }
         Insert: {
+          coordenador_id?: string
           created_at?: string | null
           data: string
           disciplina?: string | null
@@ -3223,6 +3228,7 @@ export type Database = {
           turno?: string | null
         }
         Update: {
+          coordenador_id?: string
           created_at?: string | null
           data?: string
           disciplina?: string | null
@@ -3243,6 +3249,7 @@ export type Database = {
       }
       calendario_aulas: {
         Row: {
+          coordenador_id: string
           created_at: string | null
           data_aula: string
           disciplina: string | null
@@ -3252,6 +3259,7 @@ export type Database = {
           provas_disciplinas: string | null
         }
         Insert: {
+          coordenador_id?: string
           created_at?: string | null
           data_aula: string
           disciplina?: string | null
@@ -3261,6 +3269,7 @@ export type Database = {
           provas_disciplinas?: string | null
         }
         Update: {
+          coordenador_id?: string
           created_at?: string | null
           data_aula?: string
           disciplina?: string | null
@@ -3273,6 +3282,7 @@ export type Database = {
       }
       classes: {
         Row: {
+          coordenador_id: string
           created_at: string | null
           data_aula: string | null
           dias_semana: string | null
@@ -3286,6 +3296,7 @@ export type Database = {
           turno: string
         }
         Insert: {
+          coordenador_id?: string
           created_at?: string | null
           data_aula?: string | null
           dias_semana?: string | null
@@ -3299,6 +3310,7 @@ export type Database = {
           turno?: string
         }
         Update: {
+          coordenador_id?: string
           created_at?: string | null
           data_aula?: string | null
           dias_semana?: string | null
@@ -3451,6 +3463,7 @@ export type Database = {
       }
       estoque_materiais: {
         Row: {
+          coordenador_id: string
           created_at: string | null
           disciplina: string | null
           id: string
@@ -3463,6 +3476,7 @@ export type Database = {
           valor_unitario: number | null
         }
         Insert: {
+          coordenador_id?: string
           created_at?: string | null
           disciplina?: string | null
           id?: string
@@ -3475,6 +3489,7 @@ export type Database = {
           valor_unitario?: number | null
         }
         Update: {
+          coordenador_id?: string
           created_at?: string | null
           disciplina?: string | null
           id?: string
@@ -3490,6 +3505,7 @@ export type Database = {
       }
       honorarios_pagamentos: {
         Row: {
+          coordenador_id: string
           created_at: string | null
           disciplina_turma_id: string | null
           id: string
@@ -3497,6 +3513,7 @@ export type Database = {
           pago_em: string | null
         }
         Insert: {
+          coordenador_id?: string
           created_at?: string | null
           disciplina_turma_id?: string | null
           id?: string
@@ -3504,6 +3521,7 @@ export type Database = {
           pago_em?: string | null
         }
         Update: {
+          coordenador_id?: string
           created_at?: string | null
           disciplina_turma_id?: string | null
           id?: string
@@ -3521,6 +3539,7 @@ export type Database = {
       }
       loja_pedidos: {
         Row: {
+          coordenador_id: string
           created_at: string | null
           id: string
           material_id: string
@@ -3530,6 +3549,7 @@ export type Database = {
           valor_total: number | null
         }
         Insert: {
+          coordenador_id?: string
           created_at?: string | null
           id?: string
           material_id: string
@@ -3539,6 +3559,7 @@ export type Database = {
           valor_total?: number | null
         }
         Update: {
+          coordenador_id?: string
           created_at?: string | null
           id?: string
           material_id?: string
@@ -3564,6 +3585,7 @@ export type Database = {
       }
       loja_usuarios: {
         Row: {
+          coordenador_id: string
           created_at: string | null
           id: string
           nome: string
@@ -3571,6 +3593,7 @@ export type Database = {
           username: string
         }
         Insert: {
+          coordenador_id?: string
           created_at?: string | null
           id?: string
           nome?: string
@@ -3578,6 +3601,7 @@ export type Database = {
           username: string
         }
         Update: {
+          coordenador_id?: string
           created_at?: string | null
           id?: string
           nome?: string
@@ -3594,6 +3618,7 @@ export type Database = {
           cartao_debito: number | null
           comprovante_path: string | null
           comprovante_url: string | null
+          coordenador_id: string
           created_at: string | null
           dinheiro: number | null
           forma_pagamento: string | null
@@ -3613,6 +3638,7 @@ export type Database = {
           cartao_debito?: number | null
           comprovante_path?: string | null
           comprovante_url?: string | null
+          coordenador_id?: string
           created_at?: string | null
           dinheiro?: number | null
           forma_pagamento?: string | null
@@ -3632,6 +3658,7 @@ export type Database = {
           cartao_debito?: number | null
           comprovante_path?: string | null
           comprovante_url?: string | null
+          coordenador_id?: string
           created_at?: string | null
           dinheiro?: number | null
           forma_pagamento?: string | null
@@ -3693,6 +3720,7 @@ export type Database = {
       notas_aluno: {
         Row: {
           aluno_id: string
+          coordenador_id: string
           created_at: string | null
           disciplina_nome: string
           disciplina_numero: number | null
@@ -3702,6 +3730,7 @@ export type Database = {
         }
         Insert: {
           aluno_id: string
+          coordenador_id?: string
           created_at?: string | null
           disciplina_nome?: string
           disciplina_numero?: number | null
@@ -3711,6 +3740,7 @@ export type Database = {
         }
         Update: {
           aluno_id?: string
+          coordenador_id?: string
           created_at?: string | null
           disciplina_nome?: string
           disciplina_numero?: number | null
@@ -3731,6 +3761,7 @@ export type Database = {
         Row: {
           ano: number | null
           coordenador_esposa_nome: string | null
+          coordenador_id: string
           coordenador_nome: string | null
           created_at: string | null
           id: string
@@ -3739,6 +3770,7 @@ export type Database = {
         Insert: {
           ano?: number | null
           coordenador_esposa_nome?: string | null
+          coordenador_id?: string
           coordenador_nome?: string | null
           created_at?: string | null
           id?: string
@@ -3747,6 +3779,7 @@ export type Database = {
         Update: {
           ano?: number | null
           coordenador_esposa_nome?: string | null
+          coordenador_id?: string
           coordenador_nome?: string | null
           created_at?: string | null
           id?: string
@@ -3757,6 +3790,7 @@ export type Database = {
       observacoes_portal: {
         Row: {
           aluno_id: string
+          coordenador_id: string
           created_at: string | null
           id: string
           lida: boolean | null
@@ -3766,6 +3800,7 @@ export type Database = {
         }
         Insert: {
           aluno_id: string
+          coordenador_id?: string
           created_at?: string | null
           id?: string
           lida?: boolean | null
@@ -3775,6 +3810,7 @@ export type Database = {
         }
         Update: {
           aluno_id?: string
+          coordenador_id?: string
           created_at?: string | null
           id?: string
           lida?: boolean | null
@@ -3794,6 +3830,7 @@ export type Database = {
       portal_acessos: {
         Row: {
           aluno_id: string | null
+          coordenador_id: string
           dispositivo: string | null
           id: string
           login_em: string | null
@@ -3806,6 +3843,7 @@ export type Database = {
         }
         Insert: {
           aluno_id?: string | null
+          coordenador_id?: string
           dispositivo?: string | null
           id?: string
           login_em?: string | null
@@ -3818,6 +3856,7 @@ export type Database = {
         }
         Update: {
           aluno_id?: string | null
+          coordenador_id?: string
           dispositivo?: string | null
           id?: string
           login_em?: string | null
@@ -3840,6 +3879,7 @@ export type Database = {
       portal_arquivos: {
         Row: {
           aluno_id: string
+          coordenador_id: string
           id: string
           nome_arquivo: string | null
           storage_path: string | null
@@ -3848,6 +3888,7 @@ export type Database = {
         }
         Insert: {
           aluno_id: string
+          coordenador_id?: string
           id?: string
           nome_arquivo?: string | null
           storage_path?: string | null
@@ -3856,6 +3897,7 @@ export type Database = {
         }
         Update: {
           aluno_id?: string
+          coordenador_id?: string
           id?: string
           nome_arquivo?: string | null
           storage_path?: string | null
@@ -3924,6 +3966,7 @@ export type Database = {
           cidade: string | null
           cidade_nascimento: string | null
           congregacao: string | null
+          coordenador_id: string
           cpf: string | null
           created_at: string | null
           data_batismo: string | null
@@ -3962,6 +4005,7 @@ export type Database = {
           cidade?: string | null
           cidade_nascimento?: string | null
           congregacao?: string | null
+          coordenador_id?: string
           cpf?: string | null
           created_at?: string | null
           data_batismo?: string | null
@@ -4000,6 +4044,7 @@ export type Database = {
           cidade?: string | null
           cidade_nascimento?: string | null
           congregacao?: string | null
+          coordenador_id?: string
           cpf?: string | null
           created_at?: string | null
           data_batismo?: string | null
@@ -4268,6 +4313,138 @@ export type Database = {
         Relationships: []
       }
       messages_2026_06_04: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_06_05: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_06_06: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_06_07: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_06_08: {
         Row: {
           event: string | null
           extension: string

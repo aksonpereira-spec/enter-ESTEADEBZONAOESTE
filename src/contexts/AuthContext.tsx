@@ -4,10 +4,13 @@ import { Session } from '@supabase/supabase-js';
 
 export type UserRole = 'admin' | 'student' | 'director';
 
+import { ZONA_OESTE_ID } from '@/lib/constants';
+
 interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   userRole: UserRole | null;
+  coordenadorId: string | null;
   studentId: string | null;
   studentName: string | null;
   studentAuthId: string | null;
@@ -38,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [coordenadorId, setCoordenadorId] = useState<string | null>(null);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [studentName, setStudentName] = useState<string | null>(null);
   const [studentAuthId, setStudentAuthId] = useState<string | null>(null);
@@ -62,6 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (adminAuth === 'true') {
       setIsAuthenticated(true);
       setUserRole('admin');
+      setCoordenadorId(ZONA_OESTE_ID);
       setIsLoading(false);
       return;
     }
@@ -69,8 +74,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check director auth from localStorage
     const directorAuth = safeStorage.get('esteadeb_director_auth');
     if (directorAuth === 'true') {
+      const storedId = safeStorage.get('esteadeb_director_id');
       setIsAuthenticated(true);
       setUserRole('director');
+      setCoordenadorId(storedId);
       setIsLoading(false);
       return;
     }
@@ -115,6 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (username === 'admin' && password === '1234') {
       setIsAuthenticated(true);
       setUserRole('admin');
+      setCoordenadorId(ZONA_OESTE_ID);
       safeStorage.set('esteadeb_auth', 'true');
       return true;
     }
@@ -136,14 +144,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!data) {
       // First access: must use default password 1234
       if (password !== '1234') return { error: 'Primeiro acesso: use a senha padrão 1234' };
-      const { error: insErr } = await supabase
+      const { data: newDir, error: insErr } = await supabase
         .from('diretores')
-        .insert({ email: emailLower, senha: '1234', senha_temporaria: true });
-      if (insErr) return { error: 'Erro ao registrar acesso' };
+        .insert({ email: emailLower, senha: '1234', senha_temporaria: true })
+        .select('id').maybeSingle();
+      if (insErr || !newDir) return { error: 'Erro ao registrar acesso' };
       safeStorage.set('esteadeb_director_auth', 'true');
       safeStorage.set('esteadeb_director_email', emailLower);
+      safeStorage.set('esteadeb_director_id', newDir.id);
       setIsAuthenticated(true);
       setUserRole('director');
+      setCoordenadorId(newDir.id);
       return { needsPasswordChange: true };
     }
 
@@ -151,8 +162,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     safeStorage.set('esteadeb_director_auth', 'true');
     safeStorage.set('esteadeb_director_email', emailLower);
+    safeStorage.set('esteadeb_director_id', data.id);
     setIsAuthenticated(true);
     setUserRole('director');
+    setCoordenadorId(data.id);
 
     if (data.senha_temporaria) return { needsPasswordChange: true };
     return {};
@@ -230,11 +243,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } else if (userRole === 'director') {
       safeStorage.remove('esteadeb_director_auth');
       safeStorage.remove('esteadeb_director_email');
+      safeStorage.remove('esteadeb_director_id');
     } else {
       await supabase.auth.signOut();
     }
     setIsAuthenticated(false);
     setUserRole(null);
+    setCoordenadorId(null);
     setStudentId(null);
     setStudentName(null);
     setStudentAuthId(null);
@@ -243,7 +258,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={{
-      isAuthenticated, isLoading, userRole,
+      isAuthenticated, isLoading, userRole, coordenadorId,
       studentId, studentName, studentAuthId, session,
       login, loginDirector, changeDirectorPassword, loginStudent, signUpStudent, logout,
     }}>

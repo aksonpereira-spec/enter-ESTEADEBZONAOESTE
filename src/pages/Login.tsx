@@ -108,7 +108,7 @@ const Login = () => {
         <div className="relative z-10 text-center max-w-md">
           <img src="/logo-esteadeb.png" alt="ESTEADEB" className="h-20 w-auto object-contain mx-auto mb-8 drop-shadow-xl" />
           <h1 className="text-2xl font-black text-white mb-2 leading-tight">
-            ESTEADEB NÚCLEO ZONA OESTE
+            PORTAL NÚCLEO ESTEADEB
           </h1>
           <p className="text-3xl font-bold text-white/80 mb-3">
             Seja Bem-vindo!
@@ -138,7 +138,7 @@ const Login = () => {
           {/* Logo mobile */}
           <div className="lg:hidden text-center mb-6">
             <img src="/logo-esteadeb.png" alt="ESTEADEB" className="h-12 w-auto object-contain mx-auto mb-3" />
-            <p className="text-white font-bold text-lg">ESTEADEB NÚCLEO ZONA OESTE</p>
+            <p className="text-white font-bold text-lg">PORTAL NÚCLEO ESTEADEB</p>
             <p className="text-white/60 text-sm">Seja Bem-vindo!</p>
           </div>
 

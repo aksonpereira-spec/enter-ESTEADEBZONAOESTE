@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Aluno, Turma, AttendanceSession } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { toast } from 'sonner';
 const TURNOS = ['Manhã', 'Tarde', 'Noite'] as const;
 
 const ChamadaTab = () => {
+  const { coordenadorId } = useAuth();
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
@@ -32,15 +34,16 @@ const ChamadaTab = () => {
   const [histAlunos, setHistAlunos] = useState<{ aluno: Aluno; presente: boolean }[]>([]);
 
   const loadBase = useCallback(async () => {
+    if (!coordenadorId) return;
     setLoading(true);
     const [tRes, sRes] = await Promise.all([
-      supabase.from('classes').select('*').order('nome'),
-      supabase.from('attendance_sessions').select('*').order('data', { ascending: false }).limit(50),
+      supabase.from('classes').select('*').eq('coordenador_id', coordenadorId).order('nome'),
+      supabase.from('attendance_sessions').select('*').eq('coordenador_id', coordenadorId).order('data', { ascending: false }).limit(50),
     ]);
     if (tRes.data) setTurmas(tRes.data.map(r => ({ id: r.id, nome: r.nome, turno: r.turno as 'Manhã'|'Tarde'|'Noite', disciplina: r.disciplina ?? '', professor: r.professor ?? '', diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '', createdAt: r.created_at })));
     if (sRes.data) setSessions(sRes.data.map(r => ({ id: r.id, turmaId: r.turma_id, data: r.data, turno: r.turno as 'Manhã'|'Tarde'|'Noite', professor: r.professor ?? '', disciplina: r.disciplina ?? '', obs: r.obs ?? '', createdAt: r.created_at })));
     setLoading(false);
-  }, []);
+  }, [coordenadorId]);
 
   useEffect(() => { loadBase(); }, [loadBase]);
 
@@ -75,6 +78,7 @@ const ChamadaTab = () => {
   const salvarChamada = async () => {
     if (!selectedTurma) { toast.error('Selecione uma turma'); return; }
     if (!sessionDate) { toast.error('Informe a data da aula'); return; }
+    if (!coordenadorId) return;
     setSaving(true);
     const { data: sess, error: sessErr } = await supabase.from('attendance_sessions').insert({
       turma_id: selectedTurma,
@@ -83,6 +87,7 @@ const ChamadaTab = () => {
       professor: sessionProfessor,
       disciplina: sessionDisciplina,
       obs: sessionObs,
+      coordenador_id: coordenadorId,
     }).select().single();
     if (sessErr || !sess) { toast.error('Erro ao salvar sessão'); setSaving(false); return; }
 

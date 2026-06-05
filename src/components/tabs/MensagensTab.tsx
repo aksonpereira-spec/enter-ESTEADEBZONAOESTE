@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { MessageCircle, Send, CheckCheck, Clock, Search, RefreshCw, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ interface Mensagem {
 }
 
 export default function MensagensTab() {
+  const { coordenadorId } = useAuth();
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState('');
@@ -27,10 +29,12 @@ export default function MensagensTab() {
   const [enviando, setEnviando] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!coordenadorId) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('observacoes_portal')
       .select('*, alunos(nome, matricula)')
+      .eq('coordenador_id', coordenadorId)
       .order('created_at', { ascending: false });
 
     if (error) { toast.error('Erro ao carregar mensagens'); setLoading(false); return; }
@@ -50,7 +54,7 @@ export default function MensagensTab() {
     });
     setMensagens(rows);
     setLoading(false);
-  }, []);
+  }, [coordenadorId]);
 
   useEffect(() => { load(); }, [load]);
 

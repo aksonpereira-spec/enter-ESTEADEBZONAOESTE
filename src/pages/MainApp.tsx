@@ -33,7 +33,7 @@ const TABS = [
 ];
 
 const MainApp = () => {
-  const { logout } = useAuth();
+  const { logout, coordenadorId } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('alunos');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [nucleoConfig, setNucleoConfig] = useState<NucleoConfig>({
@@ -42,7 +42,8 @@ const MainApp = () => {
 
   useEffect(() => {
     const loadConfig = async () => {
-      const { data } = await supabase.from('nucleo_config').select('*').limit(1).maybeSingle();
+      if (!coordenadorId) return;
+      const { data } = await supabase.from('nucleo_config').select('*').eq('coordenador_id', coordenadorId).maybeSingle();
       if (data) {
         setNucleoConfig({
           id: data.id, nomeNucleo: data.nome_nucleo ?? '',
@@ -53,7 +54,7 @@ const MainApp = () => {
       }
     };
     loadConfig();
-  }, []);
+  }, [coordenadorId]);
 
   const currentTab = TABS.find(t => t.id === activeTab)!;
   const CurrentIcon = currentTab.icon;

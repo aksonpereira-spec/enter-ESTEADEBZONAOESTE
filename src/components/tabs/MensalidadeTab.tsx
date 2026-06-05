@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Aluno, Turma, Mensalidade } from '@/types/school';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,12 +91,13 @@ interface RowProps {
   aluno: Aluno;
   mensalidade: Mensalidade | undefined;
   selectedMonth: string;
+  coordenadorId: string | null;
   onSaved: () => void;
   onOpenHistory: (aluno: Aluno) => void;
   onSituacaoPago: (aluno: Aluno) => void;
 }
 
-const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHistory, onSituacaoPago }: RowProps) => {
+const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, coordenadorId, onSaved, onOpenHistory, onSituacaoPago }: RowProps) => {
   const [dinheiro, setDinheiro] = useState(mensalidade?.dinheiro ? String(mensalidade.dinheiro) : '');
   const [pix, setPix] = useState(mensalidade?.pixDeposito ? String(mensalidade.pixDeposito) : '');
   const [cartAss, setCartAss] = useState(mensalidade?.cartaoAssinatura ? String(mensalidade.cartaoAssinatura) : '');
@@ -150,7 +152,9 @@ const MensalidadeRow = ({ aluno, mensalidade, selectedMonth, onSaved, onOpenHist
       if (error) toast.error('Erro ao salvar: ' + error.message);
     } else {
       const { error } = await supabase.from('mensalidades').insert({
-        aluno_id: aluno.id, turma_id: aluno.turmaId, mes: selectedMonth, ...payload,
+        aluno_id: aluno.id, turma_id: aluno.turmaId, mes: selectedMonth,
+        ...(coordenadorId ? { coordenador_id: coordenadorId } : {}),
+        ...payload,
       });
       if (error) { toast.error('Erro ao salvar: ' + error.message); return; }
       onSaved();
@@ -354,6 +358,7 @@ interface PaymentHistory {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 const MensalidadeTab = () => {
+  const { coordenadorId } = useAuth();
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
   const [mensalidades, setMensalidades] = useState<Mensalidade[]>([]);
@@ -372,9 +377,10 @@ const MensalidadeTab = () => {
   const [showInadimplentes, setShowInadimplentes] = useState(false);
 
   const loadBase = useCallback(async () => {
+    if (!coordenadorId) return;
     const [aRes, tRes] = await Promise.all([
-      supabase.from('alunos').select('*, classes(id,nome,turno,disciplina,professor,dias_semana,nucleo,honorario,created_at)').eq('ativo', true).order('nome'),
-      supabase.from('classes').select('*').order('nome'),
+      supabase.from('alunos').select('*, classes(id,nome,turno,disciplina,professor,dias_semana,nucleo,honorario,created_at)').eq('coordenador_id', coordenadorId).eq('ativo', true).order('nome'),
+      supabase.from('classes').select('*').eq('coordenador_id', coordenadorId).order('nome'),
     ]);
     if (aRes.error) { setLoadError(aRes.error.message); return; }
     type AR = {
@@ -400,11 +406,12 @@ const MensalidadeTab = () => {
       disciplina: r.disciplina ?? '', professor: r.professor ?? '',
       diasSemana: r.dias_semana ?? '', nucleo: r.nucleo ?? '', honorario: Number(r.honorario) || 0, createdAt: r.created_at,
     })));
-  }, []);
+  }, [coordenadorId]);
 
   const loadMensalidades = useCallback(async () => {
+    if (!coordenadorId) return;
     setLoading(true); setLoadError('');
-    const { data, error } = await supabase.from('mensalidades').select('*').eq('mes', selectedMonth);
+    const { data, error } = await supabase.from('mensalidades').select('*').eq('mes', selectedMonth).eq('coordenador_id', coordenadorId);
     if (error) { setLoadError(error.message); setLoading(false); return; }
     if (data) setMensalidades(data.map(r => ({
       id: r.id, alunoId: r.aluno_id, turmaId: r.turma_id, mes: r.mes,
@@ -418,7 +425,7 @@ const MensalidadeTab = () => {
       qtdApostilas: Number(r.qtd_apostilas) || 0,
     })));
     setLoading(false);
-  }, [selectedMonth]);
+  }, [selectedMonth, coordenadorId]);
 
   useEffect(() => { loadBase(); }, [loadBase]);
   useEffect(() => { loadMensalidades(); }, [loadMensalidades]);
@@ -457,7 +464,7 @@ const MensalidadeTab = () => {
   const openHistory = async (aluno: Aluno) => {
     setSelectedAluno(aluno);
     setLoadingHistory(true);
-    const { data } = await supabase.from('mensalidades').select('*').eq('aluno_id', aluno.id).order('mes');
+    const { data } = await supabase.from('mensalidades').select('*').eq('aluno_id', aluno.id).eq('coordenador_id', coordenadorId!).order('mes');
     if (data) setAlunoHistory(data.map(r => ({
       id: r.id, mes: r.mes, situacao: r.situacao,
       dinheiro: Number(r.dinheiro) || 0, pixDeposito: Number(r.pix_deposito) || 0,
@@ -791,6 +798,7 @@ const MensalidadeTab = () => {
                     aluno={a}
                     mensalidade={getMensalidade(a.id)}
                     selectedMonth={selectedMonth}
+                    coordenadorId={coordenadorId}
                     onSaved={loadMensalidades}
                     onOpenHistory={openHistory}
                     onSituacaoPago={handleSituacaoPago}

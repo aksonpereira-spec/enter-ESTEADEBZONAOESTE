@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Activity, Wifi, WifiOff, Clock, Users, TrendingUp, RefreshCw, Monitor, Smartphone } from 'lucide-react';
 
 interface Acesso {
@@ -43,6 +44,7 @@ function isMobileDevice(ua: string) {
 }
 
 export default function MonitoramentoTab() {
+  const { coordenadorId } = useAuth();
   const [acessos, setAcessos] = useState<Acesso[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -56,16 +58,18 @@ export default function MonitoramentoTab() {
   }, []);
 
   const load = useCallback(async () => {
+    if (!coordenadorId) return;
     setLoading(true);
     const since = filter === 'semana'
       ? new Date(Date.now() - 7 * 86400000).toISOString()
       : filter === 'hoje'
         ? new Date(Date.now() - 86400000).toISOString()
-        : new Date(Date.now() - 3 * 86400000).toISOString(); // online: last 3 days
+        : new Date(Date.now() - 3 * 86400000).toISOString();
 
     const { data } = await supabase
       .from('portal_acessos')
       .select('*')
+      .eq('coordenador_id', coordenadorId)
       .gte('login_em', since)
       .order('login_em', { ascending: false })
       .limit(200);
@@ -73,7 +77,7 @@ export default function MonitoramentoTab() {
     setAcessos((data || []) as Acesso[]);
     setLastRefresh(new Date());
     setLoading(false);
-  }, [filter]);
+  }, [filter, coordenadorId]);
 
   useEffect(() => { load(); }, [load]);
 

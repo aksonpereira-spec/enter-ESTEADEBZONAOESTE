@@ -1,0 +1,30 @@
+
+-- Trigger to auto-set coordenador_id in observacoes_portal from aluno
+CREATE OR REPLACE FUNCTION fn_set_obs_coordenador()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  SELECT coordenador_id INTO NEW.coordenador_id FROM alunos WHERE id = NEW.aluno_id LIMIT 1;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_obs_coordenador ON observacoes_portal;
+CREATE TRIGGER trg_obs_coordenador
+  BEFORE INSERT ON observacoes_portal
+  FOR EACH ROW EXECUTE FUNCTION fn_set_obs_coordenador();
+
+-- Trigger to auto-set coordenador_id in portal_acessos from aluno
+CREATE OR REPLACE FUNCTION fn_set_acesso_coordenador()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.coordenador_id = '00000000-0000-0000-0000-000000000001'::uuid THEN
+    SELECT coordenador_id INTO NEW.coordenador_id FROM alunos WHERE id = NEW.aluno_id LIMIT 1;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_acesso_coordenador ON portal_acessos;
+CREATE TRIGGER trg_acesso_coordenador
+  BEFORE INSERT ON portal_acessos
+  FOR EACH ROW EXECUTE FUNCTION fn_set_acesso_coordenador();
